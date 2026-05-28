@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TaxSMP — Official Site</title>
+    <meta name="description" content="Official TaxSMP Minecraft server. Join the community, browse the store, and start your adventure." />
+    <link rel="icon" type="image/png" href="assets/favicon.png" />
+    <link rel="apple-touch-icon" href="assets/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="landing">
+    <canvas id="particles" aria-hidden="true"></canvas>
+
+    <main class="hub">
+        <div class="hub-grid">
+
+            <!-- Brand / logo tile -->
+            <a class="tile tile-logo" href="#" data-tile="logo">
+                <div class="logo-glow" aria-hidden="true"></div>
+                <img class="logo-island" src="assets/logo-island.png" alt="TaxSMP logo"
+                     onerror="this.classList.add('img-missing')" />
+                <button class="tile-ip" type="button" data-ip="taxsmp.net">
+                    <span class="tile-ip-icon" aria-hidden="true">⧉</span>
+                    <span class="tile-ip-label">TAXSMP.NET</span>
+                </button>
+            </a>
+
+            <!-- Store tile -->
+            <a class="tile tile-store" href="store.html">
+                <div class="tile-label">Store</div>
+                <img class="logo-text-stamp" src="assets/logo-text.png" alt="Store"
+                     onerror="this.classList.add('img-missing')" />
+            </a>
+
+            <!-- Discord tile -->
+            <a class="tile tile-discord" href="https://discord.gg/3eSTqYaAuR" target="_blank" rel="noopener">
+                <svg class="discord-logo" viewBox="0 0 71 55" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path fill="#5865F2" d="M60.105 4.898A58.55 58.55 0 0 0 45.653.415a.22.22 0 0 0-.232.111c-.623 1.107-1.314 2.551-1.798 3.686a54.067 54.067 0 0 0-16.243 0c-.484-1.16-1.2-2.579-1.828-3.686a.228.228 0 0 0-.232-.111 58.386 58.386 0 0 0-14.451 4.483.207.207 0 0 0-.095.082C1.578 18.73-.944 32.144.293 45.39a.244.244 0 0 0 .093.166c6.073 4.46 11.955 7.167 17.729 8.962a.23.23 0 0 0 .249-.082 42.08 42.08 0 0 0 3.627-5.9.225.225 0 0 0-.123-.312 38.772 38.772 0 0 1-5.539-2.64.228.228 0 0 1-.022-.378c.372-.279.744-.569 1.1-.862a.22.22 0 0 1 .229-.031c11.62 5.305 24.198 5.305 35.681 0a.219.219 0 0 1 .232.028c.356.293.728.586 1.103.865a.228.228 0 0 1-.02.378 36.384 36.384 0 0 1-5.541 2.637.227.227 0 0 0-.121.315 47.249 47.249 0 0 0 3.624 5.897.225.225 0 0 0 .249.084c5.801-1.794 11.684-4.502 17.757-8.961a.228.228 0 0 0 .092-.164c1.48-15.315-2.48-28.618-10.497-40.41a.18.18 0 0 0-.093-.084Zm-36.38 32.42c-3.497 0-6.38-3.211-6.38-7.156 0-3.944 2.827-7.156 6.38-7.156 3.583 0 6.438 3.24 6.382 7.156 0 3.945-2.827 7.156-6.382 7.156Zm23.593 0c-3.498 0-6.38-3.211-6.38-7.156 0-3.944 2.826-7.156 6.38-7.156 3.582 0 6.437 3.24 6.38 7.156 0 3.945-2.798 7.156-6.38 7.156Z"/>
+                </svg>
+                <div class="tile-num">JOIN<br/>DISCORD</div>
+                <div class="tile-sub">
+                    <span class="live-dot"></span> Community Server
+                </div>
+            </a>
+
+            <!-- How To Join tile -->
+            <a class="tile tile-join" href="#" data-tile="join">
+                <div class="tile-label">How To Join</div>
+                <div class="join-mockup" aria-hidden="true">
+                    <div class="join-field">
+                        <span class="join-field-label">Server Name</span>
+                        <span class="join-field-value">TaxSMP<span class="cursor">_</span></span>
+                    </div>
+                    <div class="join-field">
+                        <span class="join-field-label">Server Address</span>
+                        <span class="join-field-value">taxsmp.net</span>
+                    </div>
+                </div>
+            </a>
+
+        </div>
+    </main>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
