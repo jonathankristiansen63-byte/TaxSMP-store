@@ -127,7 +127,7 @@
         "++++ Rank": { tier: 4, icon: "✫", sub: "The full TaxSMP experience" }
     };
 
-    let storeData = { ranks: [], keys: [] };
+    let storeData = { ranks: [], keys: [], gems: [] };
     let activeRankIdx = 0;
     const qtySelection = new Map(); // package_id -> selected qty
     let pendingAction = null;       // function to run once username is set
@@ -142,9 +142,13 @@
                 .slice().sort((a, b) => (a.base_price || 0) - (b.base_price || 0));
             const keys = (cats.find(c => /crate|key/i.test(c.name))?.packages || [])
                 .slice().sort((a, b) => (a.base_price || 0) - (b.base_price || 0));
-            storeData = { ranks, keys };
+            const gems = (cats.find(c => /gem|rub(y|ies)|crystal|coin|token|currency/i.test(c.name))?.packages || [])
+                .slice().sort((a, b) => (a.base_price || 0) - (b.base_price || 0));
+            storeData = { ranks, keys, gems };
             renderRanks();
             renderKeys();
+            renderGems();
+            setCategoryArt();
             $("#loading")?.classList.add("hidden");
         } catch (err) {
             console.error(err);
@@ -210,10 +214,39 @@
         });
     };
 
-    const renderKeys = () => {
-        const grid = $("#key-grid");
+    // Each category card shows a random image from its own packages.
+    const setCategoryArt = () => {
+        const pick = (arr) => {
+            const withImg = (arr || []).filter(p => p.image);
+            return withImg.length ? withImg[Math.floor(Math.random() * withImg.length)].image : "";
+        };
+        const apply = (sel, img) => {
+            const el = $(sel);
+            if (el && img) el.innerHTML = `<img src="${img}" alt="" />`;
+        };
+        apply(".cat-ranks .cat-art", pick(storeData.ranks));
+        apply(".cat-crates .cat-art", pick(storeData.keys));
+        apply(".cat-gems .cat-art", pick(storeData.gems));
+    };
+
+    const renderKeys = () => buildPackageGrid($("#key-grid"), storeData.keys);
+
+    const renderGems = () => {
+        const grid = $("#gem-grid");
         if (!grid) return;
-        grid.innerHTML = storeData.keys.map(k => {
+        const section = $("#gems-section");
+        const card = $("#gems-card");
+        if (!storeData.gems.length) {
+            section?.classList.add("hidden");
+            card?.classList.add("hidden");
+            return;
+        }
+        buildPackageGrid(grid, storeData.gems);
+    };
+
+    const buildPackageGrid = (grid, packages) => {
+        if (!grid) return;
+        grid.innerHTML = packages.map(k => {
             const qty = qtySelection.get(k.id) || 1;
             return `
                 <article class="key-card" data-key="${k.id}">
@@ -242,7 +275,7 @@
                 });
             });
             card.querySelector("[data-add]").addEventListener("click", () => {
-                const pkg = storeData.keys.find(k => k.id === id);
+                const pkg = packages.find(k => k.id === id);
                 const q = qtySelection.get(id) || 1;
                 requestAddToCart(pkg, q);
             });

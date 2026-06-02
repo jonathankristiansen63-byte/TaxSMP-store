@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TaxSMP — Official Site</title>
-    <meta name="description" content="Official TaxSMP Minecraft server. Join the community, browse the store, and start your adventure." />
+    <title>TaxSMP — Store</title>
+    <meta name="description" content="Official TaxSMP store. Buy ranks, crate keys and exclusive perks." />
     <link rel="icon" type="image/png" href="assets/favicon.png" />
     <link rel="apple-touch-icon" href="assets/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -12,58 +12,141 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="landing">
+<body class="store-page">
     <canvas id="particles" aria-hidden="true"></canvas>
 
-    <main class="hub">
-        <div class="hub-grid">
+    <header class="store-top">
+        <a class="store-logo" href="index.html">
+            <img class="logo-text-header logo-island-header" src="assets/logo-island.png" alt="TaxSMP"
+                 onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'logo-text-fallback', textContent:'TAXSMP'}))" />
+            <button class="tile-ip" type="button" data-ip="taxsmp.net">
+                <span class="tile-ip-icon" aria-hidden="true">⧉</span>
+                <span class="tile-ip-label">TAXSMP.NET</span>
+            </button>
+        </a>
+        <button class="cart-btn" type="button" id="cart-btn" aria-label="Open cart">
+            <svg class="cart-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="9" cy="21" r="1"></circle>
+                <circle cx="20" cy="21" r="1"></circle>
+                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+            </svg>
+            <span class="cart-count" id="cart-count">0</span>
+        </button>
+    </header>
 
-            <!-- Brand / logo tile -->
-            <a class="tile tile-logo" href="#" data-tile="logo">
-                <div class="logo-glow" aria-hidden="true"></div>
-                <img class="logo-island" src="assets/logo-island.png" alt="TaxSMP logo"
-                     onerror="this.classList.add('img-missing')" />
-                <button class="tile-ip" type="button" data-ip="taxsmp.net">
-                    <span class="tile-ip-icon" aria-hidden="true">⧉</span>
-                    <span class="tile-ip-label">TAXSMP.NET</span>
-                </button>
-            </a>
+    <main class="store-main">
+        <div class="store-container">
+            <!-- Username greeting (hidden until set) -->
+            <div class="user-banner hidden" id="user-banner">
+                <span>Shopping as <strong id="user-name"></strong></span>
+                <button type="button" id="change-user" class="link-btn">Change</button>
+            </div>
 
-            <!-- Store tile -->
-            <a class="tile tile-store" href="store.html">
-                <div class="tile-label">Store</div>
-                <img class="logo-text-stamp" src="assets/logo-text.png" alt="Store"
-                     onerror="this.classList.add('img-missing')" />
-            </a>
-
-            <!-- Discord tile -->
-            <a class="tile tile-discord" href="https://discord.gg/3eSTqYaAuR" target="_blank" rel="noopener">
-                <svg class="discord-logo" viewBox="0 0 71 55" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                    <path fill="#5865F2" d="M60.105 4.898A58.55 58.55 0 0 0 45.653.415a.22.22 0 0 0-.232.111c-.623 1.107-1.314 2.551-1.798 3.686a54.067 54.067 0 0 0-16.243 0c-.484-1.16-1.2-2.579-1.828-3.686a.228.228 0 0 0-.232-.111 58.386 58.386 0 0 0-14.451 4.483.207.207 0 0 0-.095.082C1.578 18.73-.944 32.144.293 45.39a.244.244 0 0 0 .093.166c6.073 4.46 11.955 7.167 17.729 8.962a.23.23 0 0 0 .249-.082 42.08 42.08 0 0 0 3.627-5.9.225.225 0 0 0-.123-.312 38.772 38.772 0 0 1-5.539-2.64.228.228 0 0 1-.022-.378c.372-.279.744-.569 1.1-.862a.22.22 0 0 1 .229-.031c11.62 5.305 24.198 5.305 35.681 0a.219.219 0 0 1 .232.028c.356.293.728.586 1.103.865a.228.228 0 0 1-.02.378 36.384 36.384 0 0 1-5.541 2.637.227.227 0 0 0-.121.315 47.249 47.249 0 0 0 3.624 5.897.225.225 0 0 0 .249.084c5.801-1.794 11.684-4.502 17.757-8.961a.228.228 0 0 0 .092-.164c1.48-15.315-2.48-28.618-10.497-40.41a.18.18 0 0 0-.093-.084Zm-36.38 32.42c-3.497 0-6.38-3.211-6.38-7.156 0-3.944 2.827-7.156 6.38-7.156 3.583 0 6.438 3.24 6.382 7.156 0 3.945-2.827 7.156-6.382 7.156Zm23.593 0c-3.498 0-6.38-3.211-6.38-7.156 0-3.944 2.826-7.156 6.38-7.156 3.582 0 6.437 3.24 6.38 7.156 0 3.945-2.798 7.156-6.38 7.156Z"/>
-                </svg>
-                <div class="tile-num">JOIN<br/>DISCORD</div>
-                <div class="tile-sub">
-                    <span class="live-dot"></span> Community Server
-                </div>
-            </a>
-
-            <!-- How To Join tile -->
-            <a class="tile tile-join" href="#" data-tile="join">
-                <div class="tile-label">How To Join</div>
-                <div class="join-mockup" aria-hidden="true">
-                    <div class="join-field">
-                        <span class="join-field-label">Server Name</span>
-                        <span class="join-field-value">TaxSMP<span class="cursor">_</span></span>
+            <!-- Category hub (big gradient cards) -->
+            <section class="category-hub" id="category-hub">
+                <a class="cat-card cat-ranks" href="#ranks-section">
+                    <div class="cat-text">
+                        <h3>Ranks</h3>
+                        <span>Click to view</span>
                     </div>
-                    <div class="join-field">
-                        <span class="join-field-label">Server Address</span>
-                        <span class="join-field-value">taxsmp.net</span>
+                    <div class="cat-art" aria-hidden="true"></div>
+                </a>
+                <a class="cat-card cat-crates" href="#crates-section">
+                    <div class="cat-text">
+                        <h3>Crates</h3>
+                        <span>Click to view</span>
                     </div>
-                </div>
-            </a>
+                    <div class="cat-art" aria-hidden="true"></div>
+                </a>
+                <a class="cat-card cat-gems" href="#gems-section" id="gems-card">
+                    <div class="cat-text">
+                        <h3>Gems</h3>
+                        <span>Click to view</span>
+                    </div>
+                    <div class="cat-art" aria-hidden="true"></div>
+                </a>
+            </section>
 
+            <!-- Ranks section -->
+            <section class="ranks-section" id="ranks-section">
+                <div class="section-header">
+                    <h2>Ranks</h2>
+                    <p>Pick a rank to unlock exclusive perks and support the server.</p>
+                </div>
+                <nav class="rank-tabs" id="rank-tabs"></nav>
+                <div class="rank-featured" id="rank-featured"></div>
+            </section>
+
+            <!-- Crates section -->
+            <section class="crates-section" id="crates-section">
+                <div class="section-header">
+                    <h2>Crate Keys</h2>
+                    <p>Unlock rewards with keys. Choose a quantity and add to cart.</p>
+                </div>
+                <div class="key-grid" id="key-grid"></div>
+            </section>
+
+            <!-- Gems section -->
+            <section class="crates-section" id="gems-section">
+                <div class="section-header">
+                    <h2>Gems</h2>
+                    <p>Premium currency — spend it in-game at the <strong>/shop</strong> gem shop.</p>
+                </div>
+                <div class="key-grid" id="gem-grid"></div>
+            </section>
+
+            <div id="loading" class="loading">
+                <div class="spinner" aria-hidden="true"></div>
+                <p>Loading store…</p>
+            </div>
         </div>
     </main>
+
+    <footer class="store-footer">
+        <p>TaxSMP is not affiliated with Mojang Studios or Microsoft. Payments processed securely by Tebex.</p>
+    </footer>
+
+    <!-- Cart drawer (z-index 200) -->
+    <div class="cart-drawer hidden" id="cart-drawer">
+        <div class="cart-drawer-overlay" data-close-cart></div>
+        <aside class="cart-panel" aria-label="Your cart">
+            <header class="cart-header">
+                <h3>Your Cart</h3>
+                <button class="modal-close" type="button" data-close-cart aria-label="Close">✕</button>
+            </header>
+            <div class="cart-items" id="cart-items"></div>
+            <div class="cart-empty" id="cart-empty">
+                <div class="cart-empty-icon" aria-hidden="true">🛒</div>
+                <p>Your cart is empty.</p>
+                <button type="button" class="btn-ghost" data-close-cart>Browse store</button>
+            </div>
+            <footer class="cart-footer hidden" id="cart-footer">
+                <div class="cart-total-row">
+                    <span>Total</span>
+                    <strong id="cart-total">$0.00</strong>
+                </div>
+                <button type="button" class="btn-secondary" data-close-cart>+ Add more items</button>
+                <button type="button" class="btn-primary" id="checkout-btn">
+                    <span id="checkout-label">Checkout</span>
+                </button>
+                <p class="cart-disclaimer">You'll be redirected to Tebex to complete payment securely.</p>
+            </footer>
+        </aside>
+    </div>
+
+    <!-- Username modal (z-index 300 — must be ABOVE cart drawer) -->
+    <div class="modal-backdrop hidden" id="user-modal">
+        <div class="modal" role="dialog" aria-labelledby="user-modal-title">
+            <button class="modal-close" type="button" data-close-modal aria-label="Close">✕</button>
+            <h3 id="user-modal-title">Enter your Minecraft username</h3>
+            <p class="modal-sub">We need your username so your items are delivered to the right account.</p>
+            <form id="user-form">
+                <input type="text" id="user-input" placeholder="e.g. Notch" autocomplete="off" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]+" />
+                <p class="form-hint">3–16 characters. Letters, numbers and underscores only.</p>
+                <button type="submit" class="btn-primary">Continue</button>
+            </form>
+        </div>
+    </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
