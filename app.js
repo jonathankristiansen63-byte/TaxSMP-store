@@ -1,7 +1,7 @@
 (() => {
     "use strict";
 
-    const TEBEX_TOKEN = "11t68-17b9a6ffc9dc73c6c89eef44b6996f825ec19a53";
+    const TEBEX_TOKEN = "12b00-c57914f7265cf8a78648a0126a224d95f4635fde";
     const API = `https://headless.tebex.io/api/accounts/${TEBEX_TOKEN}`;
     const BASKET_API = `https://headless.tebex.io/api/baskets`;
     const WEBSTORE = "https://taxsmps.tebex.io";
@@ -26,11 +26,43 @@
     const Store = {
         get user() { return localStorage.getItem("taxsmp_user") || ""; },
         set user(v) { v ? localStorage.setItem("taxsmp_user", v) : localStorage.removeItem("taxsmp_user"); },
+        get platform() { return localStorage.getItem("taxsmp_platform") === "bedrock" ? "bedrock" : "java"; },
+        set platform(v) { localStorage.setItem("taxsmp_platform", v === "bedrock" ? "bedrock" : "java"); },
         get cart() {
             try { return JSON.parse(localStorage.getItem("taxsmp_cart") || "[]"); }
             catch { return []; }
         },
         set cart(items) { localStorage.setItem("taxsmp_cart", JSON.stringify(items)); }
+    };
+
+    // The name Tebex should deliver to. Bedrock players come through Floodgate
+    // with a "." username prefix, so we prepend it for the Bedrock edition.
+    // Java names are sent as-is. (Guarded so we never double up the dot.)
+    const FLOODGATE_PREFIX = ".";
+    const deliveryUsername = () => {
+        const name = Store.user;
+        if (!name) return name;
+        return (Store.platform === "bedrock" && !name.startsWith(FLOODGATE_PREFIX))
+            ? FLOODGATE_PREFIX + name
+            : name;
+    };
+
+    // Validation + hint differ per edition: Bedrock gamertags allow spaces.
+    const PLATFORM_RULES = {
+        java: {
+            re: /^[A-Za-z0-9_]{3,16}$/,
+            pattern: "[A-Za-z0-9_]+",
+            placeholder: "e.g. Notch",
+            hint: "3–16 characters. Letters, numbers and underscores only.",
+            error: "Java username must be 3–16 letters, numbers or underscores"
+        },
+        bedrock: {
+            re: /^[A-Za-z0-9_]{3,16}$/,
+            pattern: "[A-Za-z0-9_]+",
+            placeholder: "e.g. Steve123",
+            hint: "Your Bedrock gamertag (3–16 chars). Letters, numbers and underscores only.",
+            error: "Bedrock gamertag must be 3–16 letters, numbers or underscores"
+        }
     };
 
     /* ========== Toast ========== */
@@ -69,7 +101,7 @@
                 vx: (Math.random() - 0.5) * 0.22,
                 vy: (Math.random() - 0.5) * 0.22,
                 a: Math.random() * 0.5 + 0.2,
-                hue: Math.random() > 0.5 ? 200 : 260
+                hue: Math.random() > 0.5 ? 45 : 38
             }));
         };
         const tick = () => {
@@ -343,46 +375,65 @@
         updateCartBadge();
     };
 
+    // Skin head for the "signed in as" row. Java names resolve to the real
+    // skin; Bedrock/dotted names fall back to a Steve head via mc-heads.
+    const skinHeadUrl = (name) => `https://mc-heads.net/avatar/${encodeURIComponent(name || "Steve")}/40`;
+
     const renderCart = () => {
-        const itemsEl = $("#cart-items");
-        const emptyEl = $("#cart-empty");
-        const footerEl = $("#cart-footer");
-        const totalEl = $("#cart-total");
-        if (!itemsEl) return;
+        const rowsEl = $("#checkout-rows");
+        const tableEl = $("#checkout-table");
+        const emptyEl = $("#checkout-empty");
+        const ctaEl = $("#checkout-cta");
+        const totalEl = $("#checkout-total");
+        if (!rowsEl) return;
         const cart = Store.cart;
+        const ccy = cart[0]?.currency || "USD";
+
+        // Account row (always reflects the current player)
+        const display = deliveryUsername() || "Not signed in";
+        $("#account-name").textContent = display;
+        const head = $("#account-head");
+        if (head) {
+            head.onerror = () => { head.onerror = null; head.src = skinHeadUrl("Steve"); };
+            head.src = skinHeadUrl(Store.user);
+        }
+        $("#currency-label").textContent = ccy;
+
         if (!cart.length) {
-            itemsEl.innerHTML = "";
+            rowsEl.innerHTML = "";
+            tableEl.classList.add("hidden");
+            ctaEl.classList.add("hidden");
             emptyEl.classList.remove("hidden");
-            footerEl.classList.add("hidden");
+            totalEl.textContent = fmt(0, ccy);
             return;
         }
         emptyEl.classList.add("hidden");
-        footerEl.classList.remove("hidden");
+        tableEl.classList.remove("hidden");
+        ctaEl.classList.remove("hidden");
 
-        itemsEl.innerHTML = cart.map(it => `
-            <div class="cart-item" data-id="${it.id}">
-                <div class="cart-item-img">${it.image ? `<img src="${it.image}" alt="" />` : ""}</div>
-                <div class="cart-item-info">
-                    <p class="cart-item-name">${it.name}</p>
-                    <div class="cart-item-meta">
-                        ${it.type === "subscription"
-                            ? `<span>Subscription</span>`
-                            : `<div class="cart-qty">
-                                    <button type="button" data-dec aria-label="Decrease">−</button>
-                                    <span>${it.quantity}</span>
-                                    <button type="button" data-inc aria-label="Increase">+</button>
-                                </div>`
-                        }
-                    </div>
+        rowsEl.innerHTML = cart.map(it => `
+            <div class="checkout-row" data-id="${it.id}">
+                <div class="co-name">
+                    ${it.image ? `<img class="co-icon" src="${it.image}" alt="" />` : ""}
+                    <span>${it.name}</span>
                 </div>
-                <div class="cart-item-actions">
-                    <span class="cart-item-price">${fmt(it.price * it.quantity, it.currency)}</span>
-                    <button type="button" class="cart-item-remove" data-remove>Remove</button>
+                <div class="co-price">${fmt(it.price * it.quantity, it.currency)}</div>
+                <div class="co-qty">
+                    ${it.type === "subscription"
+                        ? `<span class="qty-box qty-fixed">${it.quantity}</span>`
+                        : `<span class="qty-box">
+                                <button type="button" class="qty-step" data-dec aria-label="Decrease">−</button>
+                                <span class="qty-num">${it.quantity}</span>
+                                <button type="button" class="qty-step" data-inc aria-label="Increase">+</button>
+                            </span>`
+                    }
+                    <button type="button" class="row-btn row-info" data-info aria-label="Details">i</button>
+                    <button type="button" class="row-btn row-remove" data-remove aria-label="Remove">✕</button>
                 </div>
             </div>
         `).join("");
 
-        itemsEl.querySelectorAll(".cart-item").forEach(row => {
+        rowsEl.querySelectorAll(".checkout-row").forEach(row => {
             const id = parseInt(row.dataset.id, 10);
             row.querySelector("[data-inc]")?.addEventListener("click", () => {
                 const it = Store.cart.find(i => i.id === id);
@@ -393,26 +444,54 @@
                 setQty(id, it.quantity - 1);
             });
             row.querySelector("[data-remove]")?.addEventListener("click", () => removeFromCart(id));
+            row.querySelector("[data-info]")?.addEventListener("click", () => {
+                const it = Store.cart.find(i => i.id === id);
+                if (it) toast(`${it.name} — ${it.type === "subscription" ? "Recurring subscription" : "One-time purchase"}`);
+            });
         });
 
         const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-        const ccy = cart[0]?.currency || "USD";
         totalEl.textContent = fmt(total, ccy);
     };
 
     const openCart = () => {
         renderCart();
-        $("#cart-drawer")?.classList.remove("hidden");
+        $("#checkout-screen")?.classList.remove("hidden");
+        document.body.classList.add("checkout-open");
     };
-    const closeCart = () => $("#cart-drawer")?.classList.add("hidden");
+    const closeCart = () => {
+        $("#checkout-screen")?.classList.add("hidden");
+        document.body.classList.remove("checkout-open");
+    };
 
     /* ========== Username modal ========== */
+    let modalPlatform = "java"; // edition currently selected in the modal
+
+    // Reflect the chosen edition in the toggle UI, input rules and hint text.
+    const applyPlatform = (platform) => {
+        modalPlatform = platform === "bedrock" ? "bedrock" : "java";
+        const rules = PLATFORM_RULES[modalPlatform];
+        $$("#platform-toggle .platform-opt").forEach(btn => {
+            const on = btn.dataset.platform === modalPlatform;
+            btn.classList.toggle("active", on);
+            btn.setAttribute("aria-checked", on ? "true" : "false");
+        });
+        const input = $("#user-input");
+        if (input) {
+            input.setAttribute("pattern", rules.pattern);
+            input.placeholder = rules.placeholder;
+        }
+        const hint = $("#user-hint");
+        if (hint) hint.textContent = rules.hint;
+    };
+
     const showUserModal = () => {
         const m = $("#user-modal");
         if (!m) return;
         // Close cart drawer first so the modal isn't blocked visually.
         // (Modal has higher z-index anyway, but it feels cleaner.)
         m.classList.remove("hidden");
+        applyPlatform(Store.user ? Store.platform : modalPlatform);
         const input = $("#user-input");
         if (input) {
             input.value = Store.user || "";
@@ -463,7 +542,7 @@
                     complete_url: base + "?status=complete",
                     cancel_url: base + "?status=cancel",
                     complete_auto_redirect: true,
-                    username: Store.user
+                    username: deliveryUsername()
                 })
             });
             if (!basketRes.ok) {
@@ -502,7 +581,7 @@
             console.error(err);
             toast(err.message || "Checkout failed. Try again.", true);
             btn.disabled = false;
-            label.textContent = "Checkout";
+            label.textContent = "Proceed to checkout »";
         }
     };
 
@@ -516,16 +595,27 @@
         $$("[data-close-cart]").forEach(el => el.addEventListener("click", closeCart));
         $$("[data-close-modal]").forEach(el => el.addEventListener("click", hideUserModal));
 
+        // Edition toggle (Java / Bedrock)
+        $$("#platform-toggle .platform-opt").forEach(btn => {
+            btn.addEventListener("click", () => {
+                applyPlatform(btn.dataset.platform);
+                $("#user-input")?.focus();
+            });
+        });
+
         // Submit username form
         $("#user-form")?.addEventListener("submit", (e) => {
             e.preventDefault();
-            const val = $("#user-input").value.trim();
-            if (!/^[A-Za-z0-9_]{3,16}$/.test(val)) {
-                toast("Username must be 3–16 letters, numbers or underscores", true);
+            const rules = PLATFORM_RULES[modalPlatform];
+            const val = $("#user-input").value.trim().replace(/\s+/g, " ");
+            if (!rules.re.test(val)) {
+                toast(rules.error, true);
                 return;
             }
             Store.user = val;
+            Store.platform = modalPlatform;
             updateUserBanner();
+            renderCart(); // keep the checkout account row in sync
             $("#user-modal").classList.add("hidden");
             toast(`Welcome, ${val}!`);
             // Resume whatever the user was trying to do
@@ -535,6 +625,11 @@
         });
 
         $("#change-user")?.addEventListener("click", () => showUserModal());
+        $("#switch-account")?.addEventListener("click", () => showUserModal());
+        $("#currency-select")?.addEventListener("click", () => {
+            const ccy = Store.cart[0]?.currency || "USD";
+            toast(`Prices are shown in ${ccy} (set by the store)`);
+        });
 
         $("#checkout-btn")?.addEventListener("click", doCheckout);
 

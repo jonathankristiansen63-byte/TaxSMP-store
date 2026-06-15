@@ -106,45 +106,106 @@
         <p>TaxSMP is not affiliated with Mojang Studios or Microsoft. Payments processed securely by Tebex.</p>
     </footer>
 
-    <!-- Cart drawer (z-index 200) -->
-    <div class="cart-drawer hidden" id="cart-drawer">
-        <div class="cart-drawer-overlay" data-close-cart></div>
-        <aside class="cart-panel" aria-label="Your cart">
-            <header class="cart-header">
-                <h3>Your Cart</h3>
-                <button class="modal-close" type="button" data-close-cart aria-label="Close">✕</button>
+    <!-- Full-screen checkout (z-index 200) -->
+    <div class="checkout-screen hidden" id="checkout-screen">
+        <button class="checkout-close" type="button" data-close-cart aria-label="Back to store">✕</button>
+
+        <div class="checkout-brand">
+            <img class="checkout-brand-logo" src="assets/logo-island.png" alt="TaxSMP"
+                 onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'logo-text-fallback', textContent:'TAXSMP'}))" />
+            <button class="tile-ip" type="button" data-ip="taxsmp.net">
+                <span class="tile-ip-icon" aria-hidden="true">⧉</span>
+                <span class="tile-ip-label">TAXSMP.NET</span>
+            </button>
+        </div>
+
+        <section class="checkout-card" aria-label="Checkout">
+            <header class="checkout-head">
+                <div class="checkout-head-title">
+                    <img class="checkout-head-icon" src="assets/logo-island.png" alt=""
+                         onerror="this.classList.add('img-missing')" />
+                    <div>
+                        <h2>Checkout</h2>
+                        <p class="checkout-total-line">Total: <span id="checkout-total">$0.00</span></p>
+                    </div>
+                </div>
+                <button type="button" class="currency-select" id="currency-select" aria-label="Currency">
+                    <span class="currency-globe" aria-hidden="true">🌐</span>
+                    <span id="currency-label">USD</span>
+                    <span class="currency-caret" aria-hidden="true">▾</span>
+                </button>
             </header>
-            <div class="cart-items" id="cart-items"></div>
-            <div class="cart-empty" id="cart-empty">
-                <div class="cart-empty-icon" aria-hidden="true">🛒</div>
+
+            <div class="checkout-divider"></div>
+
+            <div class="checkout-account" id="checkout-account">
+                <img class="account-head" id="account-head" alt="" />
+                <div class="account-text">
+                    <span class="account-label">You are currently signed in as</span>
+                    <strong class="account-name" id="account-name">—</strong>
+                </div>
+                <button type="button" class="switch-account" id="switch-account">
+                    <span class="switch-account-q">Wrong account?</span>
+                    <strong>Switch Accounts</strong>
+                </button>
+            </div>
+
+            <div class="checkout-divider"></div>
+
+            <div class="checkout-table" id="checkout-table">
+                <div class="checkout-table-head">
+                    <span>Name</span>
+                    <span>Price</span>
+                    <span>Quantity</span>
+                </div>
+                <div class="checkout-rows" id="checkout-rows"></div>
+            </div>
+
+            <div class="checkout-empty hidden" id="checkout-empty">
+                <div class="checkout-empty-icon" aria-hidden="true">🛒</div>
                 <p>Your cart is empty.</p>
                 <button type="button" class="btn-ghost" data-close-cart>Browse store</button>
             </div>
-            <footer class="cart-footer hidden" id="cart-footer">
-                <div class="cart-total-row">
-                    <span>Total</span>
-                    <strong id="cart-total">$0.00</strong>
-                </div>
-                <button type="button" class="btn-secondary" data-close-cart>+ Add more items</button>
-                <button type="button" class="btn-primary" id="checkout-btn">
-                    <span id="checkout-label">Checkout</span>
+
+            <div class="checkout-cta hidden" id="checkout-cta">
+                <button type="button" class="btn-proceed" id="checkout-btn">
+                    <span id="checkout-label">Proceed to checkout »</span>
                 </button>
-                <p class="cart-disclaimer">You'll be redirected to Tebex to complete payment securely.</p>
-            </footer>
-        </aside>
+                <p class="checkout-disclaimer">You'll be redirected to Tebex to complete payment securely.</p>
+            </div>
+        </section>
     </div>
 
     <!-- Username modal (z-index 300 — must be ABOVE cart drawer) -->
     <div class="modal-backdrop hidden" id="user-modal">
-        <div class="modal" role="dialog" aria-labelledby="user-modal-title">
-            <button class="modal-close" type="button" data-close-modal aria-label="Close">✕</button>
-            <h3 id="user-modal-title">Enter your Minecraft username</h3>
-            <p class="modal-sub">We need your username so your items are delivered to the right account.</p>
-            <form id="user-form">
-                <input type="text" id="user-input" placeholder="e.g. Notch" autocomplete="off" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]+" />
-                <p class="form-hint">3–16 characters. Letters, numbers and underscores only.</p>
-                <button type="submit" class="btn-primary">Continue</button>
-            </form>
+        <div class="user-gate">
+            <div class="user-gate-brand">
+                <img class="user-gate-logo" src="assets/logo-island.png" alt="TaxSMP"
+                     onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'user-gate-logo-fallback', textContent:'TAXSMP'}))" />
+                <button class="tile-ip user-gate-ip" type="button" data-ip="taxsmp.net">
+                    <span class="tile-ip-icon" aria-hidden="true">⧉</span>
+                    <span class="tile-ip-label">TAXSMP.NET</span>
+                </button>
+            </div>
+            <div class="modal user-gate-card" role="dialog" aria-labelledby="user-modal-title">
+                <button class="modal-close" type="button" data-close-modal aria-label="Close">✕</button>
+                <h3 id="user-modal-title">Enter your Minecraft Username</h3>
+                <form id="user-form">
+                    <div class="platform-toggle" id="platform-toggle" role="radiogroup" aria-label="Choose your edition">
+                        <button type="button" class="platform-opt active" data-platform="java" role="radio" aria-checked="true">
+                            <span class="platform-icon" aria-hidden="true">🖥️</span> Java
+                        </button>
+                        <button type="button" class="platform-opt" data-platform="bedrock" role="radio" aria-checked="false">
+                            <span class="platform-icon" aria-hidden="true">🎮</span> Bedrock
+                        </button>
+                    </div>
+                    <div class="user-input-row">
+                        <input type="text" id="user-input" placeholder="Enter your username" autocomplete="off" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]+" />
+                        <button type="submit" class="btn-primary">Continue <span aria-hidden="true">›</span></button>
+                    </div>
+                    <p class="form-hint" id="user-hint">3–16 characters. Letters, numbers and underscores only.</p>
+                </form>
+            </div>
         </div>
     </div>
 
