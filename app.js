@@ -4,7 +4,7 @@
     const TEBEX_TOKEN = "12b00-c57914f7265cf8a78648a0126a224d95f4635fde";
     const API = `https://headless.tebex.io/api/accounts/${TEBEX_TOKEN}`;
     const BASKET_API = `https://headless.tebex.io/api/baskets`;
-    const WEBSTORE = "https://taxsmps.tebex.io";
+    const WEBSTORE = "https://taxsmp-store.tebex.io";
     const DISCORD_INVITE = "https://discord.gg/3eSTqYaAuR";
 
     const $ = (sel, root = document) => root.querySelector(sel);
@@ -35,10 +35,14 @@
         set cart(items) { localStorage.setItem("taxsmp_cart", JSON.stringify(items)); }
     };
 
-    // The name Tebex should deliver to. Bedrock players come through Floodgate
-    // with a "." username prefix, so we prepend it for the Bedrock edition.
-    // Java names are sent as-is. (Guarded so we never double up the dot.)
+    // This store is a Tebex "Geyser (Dot Prefix)" webstore, so Bedrock players
+    // MUST be sent with a leading "." — Tebex resolves the dotted name against
+    // the player's real Xbox gamertag. Without it, Tebex does a Java/Mojang
+    // lookup and returns 404 "Invalid Username provided".
     const FLOODGATE_PREFIX = ".";
+
+    // The name shown in the UI (plain, as typed). Java names are used as-is;
+    // Bedrock we show with the dot so it's clear it's the Geyser account.
     const deliveryUsername = () => {
         const name = Store.user;
         if (!name) return name;
@@ -47,7 +51,39 @@
             : name;
     };
 
-    // Validation + hint differ per edition: Bedrock gamertags allow spaces.
+    // The tricky part: what a Bedrock player TYPES is their in-game Floodgate
+    // name (e.g. "hero_brine8026") — Floodgate lowercases and turns spaces into
+    // "_". But Tebex needs the REAL Xbox gamertag with correct spaces AND
+    // capitalisation (".Hero brine8026"). So for Bedrock we resolve the typed
+    // name to the canonical gamertag through the GeyserMC global API (the same
+    // source Tebex uses) and send that. Java names go straight through.
+    const GEYSER_API = "https://api.geysermc.org/v2/xbox";
+    const resolveTebexUsername = async (typed, platform) => {
+        if (platform !== "bedrock") return typed;              // Java: send as-is
+        if (typed.startsWith(FLOODGATE_PREFIX)) return typed;  // already resolved
+
+        // Floodgate maps spaces -> "_"; try the space form first, then verbatim.
+        const spaced = typed.replace(/_/g, " ");
+        const candidates = spaced === typed ? [typed] : [spaced, typed];
+        for (const cand of candidates) {
+            try {
+                const xr = await fetch(`${GEYSER_API}/xuid/${encodeURIComponent(cand)}`);
+                if (!xr.ok) continue;
+                const { xuid } = await xr.json();
+                if (!xuid) continue;
+                const gr = await fetch(`${GEYSER_API}/gamertag/${xuid}`);
+                if (!gr.ok) continue;
+                const { gamertag } = await gr.json();
+                if (gamertag) return FLOODGATE_PREFIX + gamertag; // e.g. ".Hero brine8026"
+            } catch { /* try next candidate */ }
+        }
+        return null; // couldn't resolve — caller surfaces a helpful error
+    };
+
+    // Validation + hint per edition. Tebex resolves the dotted Bedrock name via
+    // Xbox; the in-game (Floodgate) name only contains [A-Za-z0-9_], so we
+    // validate against that same charset for both editions. Do NOT send the "."
+    // here — deliveryUsername() adds it; the user types their plain name.
     const PLATFORM_RULES = {
         java: {
             re: /^[A-Za-z0-9_]{3,16}$/,
@@ -57,11 +93,14 @@
             error: "Java username must be 3–16 letters, numbers or underscores"
         },
         bedrock: {
-            re: /^[A-Za-z0-9_]{3,16}$/,
-            pattern: "[A-Za-z0-9_]+",
-            placeholder: "e.g. Steve123",
-            hint: "Your Bedrock gamertag (3–16 chars). Letters, numbers and underscores only.",
-            error: "Bedrock gamertag must be 3–16 letters, numbers or underscores"
+            // Allow spaces too: some players type their real gamertag ("Hero brine8026")
+            // rather than the Floodgate in-game name ("hero_brine8026"). We resolve
+            // either form to the canonical gamertag before checkout.
+            re: /^[A-Za-z0-9_ ]{3,16}$/,
+            pattern: "[A-Za-z0-9_ ]+",
+            placeholder: "e.g. Hero brine8026",
+            hint: "Your Bedrock gamertag or in-game name (3–16 chars).",
+            error: "Bedrock gamertag must be 3–16 letters, numbers, spaces or underscores"
         }
     };
 
@@ -529,8 +568,16 @@
         }
 
         btn.disabled = true;
-        label.textContent = "Building basket…";
         try {
+            // For Bedrock, turn the typed in-game name into the real Xbox gamertag
+            // Tebex can resolve. Java names pass straight through.
+            label.textContent = Store.platform === "bedrock" ? "Finding your account…" : "Building basket…";
+            const tebexUsername = await resolveTebexUsername(Store.user, Store.platform);
+            if (!tebexUsername) {
+                throw new Error(`We couldn't find "${Store.user}" as a Bedrock player. Type your Xbox gamertag exactly as it shows on your account (including spaces), then try again.`);
+            }
+
+            label.textContent = "Building basket…";
             // Tebex only accepts http(s) URLs. Fall back to the webstore when running from file://
             const proto = window.location.protocol;
             const onWeb = proto === "http:" || proto === "https:";
@@ -542,12 +589,19 @@
                     complete_url: base + "?status=complete",
                     cancel_url: base + "?status=cancel",
                     complete_auto_redirect: true,
-                    username: deliveryUsername()
+                    username: tebexUsername
                 })
             });
             if (!basketRes.ok) {
                 const err = await basketRes.json().catch(() => ({}));
-                throw new Error(err.detail || `Couldn't create basket (HTTP ${basketRes.status})`);
+                // Tebex puts the message in `title` (detail is usually empty).
+                const reason = err.detail || err.title || `HTTP ${basketRes.status}`;
+                // 404 "Invalid Username provided" means the name still didn't
+                // resolve — usually the edition toggle is on the wrong platform.
+                if (basketRes.status === 404 && /username/i.test(reason)) {
+                    throw new Error(`We couldn't find "${Store.user}" as a ${Store.platform === "bedrock" ? "Bedrock" : "Java"} player. Check the Java/Bedrock toggle matches your edition and try again.`);
+                }
+                throw new Error(`Couldn't create basket (${reason})`);
             }
             const basketJson = await basketRes.json();
             const ident = basketJson.data.ident;
