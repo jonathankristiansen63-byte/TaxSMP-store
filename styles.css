@@ -735,13 +735,135 @@ img.img-missing { opacity: 0.05; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .store-footer {
-    text-align: center;
-    padding: 30px 20px;
-    color: var(--text-mute);
-    font-size: 12px;
+    position: relative;
+    z-index: 1;
+    margin-top: 40px;
+    padding: 0 24px;
+    color: var(--text-dim);
     border-top: 1px solid var(--border);
+    background:
+        radial-gradient(ellipse 700px 300px at 50% 0%, rgba(255, 194, 51, 0.06), transparent 70%);
 }
-.store-footer p { margin: 0; }
+.footer-inner {
+    width: min(1080px, 100%);
+    margin-inline: auto;
+    padding: 46px 0 34px;
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 40px;
+    align-items: start;
+}
+
+/* Brand column */
+.footer-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+.footer-logo {
+    height: 56px;
+    width: 56px;
+    object-fit: contain;
+    filter: drop-shadow(0 6px 18px rgba(255, 194, 51, 0.3));
+}
+.footer-tagline {
+    margin: 0;
+    max-width: 42ch;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-dim);
+}
+.footer-ip { cursor: pointer; margin-top: 2px; }
+.footer-ip .tile-ip-icon { color: var(--brand-gold); }
+
+/* Stacked link column — deliberately vertical, not a horizontal row */
+.footer-links {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+}
+.footer-links-title {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    text-transform: uppercase;
+    color: var(--text-mute);
+    margin-bottom: 4px;
+}
+.footer-link {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--text-dim);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    text-align: left;
+    transition: color var(--transition), transform var(--transition);
+}
+.footer-link:hover { color: var(--brand-gold); transform: translateX(3px); }
+
+/* Bottom bar */
+.footer-bottom {
+    width: min(1080px, 100%);
+    margin-inline: auto;
+    padding: 22px 0 30px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+.footer-disclaimer {
+    margin: 0;
+    max-width: 60ch;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-mute);
+}
+.footer-copy { margin: 0; font-size: 12px; font-weight: 600; color: var(--text-mute); }
+
+@media (max-width: 680px) {
+    .footer-inner { grid-template-columns: 1fr; gap: 30px; padding: 38px 0 28px; }
+    .footer-bottom { flex-direction: column; align-items: flex-start; }
+}
+
+/* ===== Legal modal (Terms / Privacy / Refunds) ===== */
+.legal-card {
+    width: min(680px, 100%);
+    max-height: min(82vh, 760px);
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    padding: 32px 30px 26px;
+}
+.legal-card h3 { margin: 0 6px 4px 0; font-size: 24px; }
+.legal-updated {
+    margin: 0 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--text-mute);
+}
+.legal-body {
+    overflow-y: auto;
+    padding-right: 8px;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+}
+.legal-body h4 {
+    margin: 20px 0 8px;
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text);
+}
+.legal-body h4:first-child { margin-top: 0; }
+.legal-body p { margin: 0 0 12px; font-size: 14px; line-height: 1.62; color: var(--text-dim); }
+.legal-body ul { margin: 0 0 12px; padding-left: 20px; }
+.legal-body li { font-size: 14px; line-height: 1.6; color: var(--text-dim); margin-bottom: 6px; }
+.legal-body a { color: var(--brand-gold); text-decoration: underline; text-underline-offset: 2px; }
+.legal-body strong { color: var(--text); }
+.legal-body::-webkit-scrollbar { width: 8px; }
+.legal-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
 
 /* ====================================================== */
 /* MODAL + CART DRAWER — z-index ordered carefully         */
@@ -1188,6 +1310,17 @@ body.checkout-open { overflow: hidden; }
     box-shadow: 0 12px 32px rgba(255, 194, 51, 0.45);
 }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 8px;
+    vertical-align: -2px;
+    border: 2px solid rgba(0, 0, 0, 0.25);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
 .btn-ghost {
     padding: 12px 22px;
     background: transparent;
