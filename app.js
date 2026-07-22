@@ -19,20 +19,25 @@
     // is created/scheduled in the Tebex dashboard and enforced server-side at
     // checkout, so it can't be faked or abused from the browser — we only
     // reflect what Tebex reports.
+    // Tebex reports a sale by putting the DISCOUNTED price in `base_price` and
+    // the amount saved in `discount`, so the original ("was") price is
+    // base_price + discount, and the customer now pays total_price.
     const saleInfo = (pkg) => {
+        const discount = Number(pkg.discount) || 0;
         const base = Number(pkg.base_price) || 0;
-        const total = pkg.total_price != null ? Number(pkg.total_price) : base;
-        const onSale = total < base - 0.001 && base > 0;
-        return { base, total, onSale, pct: onSale ? Math.round((1 - total / base) * 100) : 0, currency: pkg.currency || "USD" };
+        const now = pkg.total_price != null ? Number(pkg.total_price) : base;
+        const was = base + discount;                    // price before the sale
+        const onSale = discount > 0.001 && was > now + 0.001;
+        return { was, now, onSale, pct: onSale ? Math.round((1 - now / was) * 100) : 0, currency: pkg.currency || "USD" };
     };
     // The price to charge / add to cart (already discounted by Tebex).
-    const effectivePrice = (pkg) => saleInfo(pkg).total;
+    const effectivePrice = (pkg) => saleInfo(pkg).now;
     // Price markup: struck-through original + discounted price when on sale.
     const priceHTML = (pkg) => {
         const s = saleInfo(pkg);
         return s.onSale
-            ? `<span class="price-was">${fmt(s.base, s.currency)}</span><span class="price-now">${fmt(s.total, s.currency)}</span>`
-            : fmt(s.total, s.currency);
+            ? `<span class="price-was">${fmt(s.was, s.currency)}</span><span class="price-now">${fmt(s.now, s.currency)}</span>`
+            : fmt(s.now, s.currency);
     };
     const dealBadge = (pkg) => {
         const s = saleInfo(pkg);
