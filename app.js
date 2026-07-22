@@ -56,6 +56,17 @@
             : name;
     };
 
+    // What we SHOW the player. Tebex only accepts the real Xbox gamertag with
+    // spaces (".Hero brine8026" — the underscore form 404s), but players
+    // recognise their in-game Floodgate name, which uses underscores
+    // (".Hero_brine8026"). So the display swaps spaces for underscores while
+    // deliveryUsername() keeps the spaces Tebex requires at checkout.
+    const displayUsername = () => {
+        const name = deliveryUsername();
+        if (!name) return name;
+        return Store.platform === "bedrock" ? name.replace(/ /g, "_") : name;
+    };
+
     // The tricky part: what a Bedrock player TYPES is their in-game Floodgate
     // name (e.g. "hero_brine8026") — Floodgate lowercases and turns spaces into
     // "_". But Tebex needs the REAL Xbox gamertag with correct spaces AND
@@ -123,7 +134,7 @@
         java: {
             re: /^[A-Za-z0-9_]{3,16}$/,
             pattern: "[A-Za-z0-9_]+",
-            placeholder: "e.g. Notch",
+            placeholder: "e.g. Taxman_MC",
             hint: "3–16 characters. Letters, numbers and underscores only.",
             error: "Java username must be 3–16 letters, numbers or underscores"
         },
@@ -133,7 +144,7 @@
             // either form to the canonical gamertag before checkout.
             re: /^[A-Za-z0-9_ ]{3,16}$/,
             pattern: "[A-Za-z0-9_ ]+",
-            placeholder: "e.g. Hero brine8026",
+            placeholder: "e.g. .Garnettas",
             hint: "Type your in-game name — we verify it against Xbox automatically.",
             error: "Bedrock gamertag must be 3–16 letters, numbers, spaces or underscores"
         }
@@ -464,7 +475,7 @@
         const ccy = cart[0]?.currency || "USD";
 
         // Account row (always reflects the current player)
-        const display = deliveryUsername() || "Not signed in";
+        const display = displayUsername() || "Not signed in";
         $("#account-name").textContent = display;
         const head = $("#account-head");
         if (head) {
@@ -568,7 +579,10 @@
         applyPlatform(Store.user ? Store.platform : modalPlatform);
         const input = $("#user-input");
         if (input) {
-            input.value = Store.user || "";
+            // Pre-fill the editable name in the same underscore form we display.
+            input.value = Store.user
+                ? (Store.platform === "bedrock" ? Store.user.replace(/ /g, "_") : Store.user)
+                : "";
             setTimeout(() => input.focus(), 60);
         }
     };
@@ -599,7 +613,7 @@
         if (!banner) return;
         const u = Store.user;
         if (u) {
-            $("#user-name").textContent = u;
+            $("#user-name").textContent = displayUsername();
             banner.classList.remove("hidden");
         } else {
             banner.classList.add("hidden");
@@ -626,7 +640,7 @@
             label.textContent = Store.platform === "bedrock" ? "Finding your account…" : "Building basket…";
             const tebexUsername = await resolveTebexUsername(Store.user, Store.platform);
             if (!tebexUsername) {
-                throw new Error(`We couldn't find "${Store.user}" as a Bedrock player. Type your Xbox gamertag exactly as it shows on your account (including spaces), then try again.`);
+                throw new Error(`We couldn't find "${displayUsername()}" as a Bedrock player. Double-check your in-game name and try again.`);
             }
 
             label.textContent = "Building basket…";
@@ -651,7 +665,7 @@
                 // 404 "Invalid Username provided" means the name still didn't
                 // resolve — usually the edition toggle is on the wrong platform.
                 if (basketRes.status === 404 && /username/i.test(reason)) {
-                    throw new Error(`We couldn't find "${Store.user}" as a ${Store.platform === "bedrock" ? "Bedrock" : "Java"} player. Check the Java/Bedrock toggle matches your edition and try again.`);
+                    throw new Error(`We couldn't find "${displayUsername()}" as a ${Store.platform === "bedrock" ? "Bedrock" : "Java"} player. Check the Java/Bedrock toggle matches your edition and try again.`);
                 }
                 throw new Error(`Couldn't create basket (${reason})`);
             }
@@ -713,7 +727,10 @@
         $("#user-form")?.addEventListener("submit", async (e) => {
             e.preventDefault();
             const rules = PLATFORM_RULES[modalPlatform];
-            const val = $("#user-input").value.trim().replace(/\s+/g, " ");
+            let val = $("#user-input").value.trim().replace(/\s+/g, " ");
+            // Players often paste their Bedrock name with the dot prefix; we add
+            // that ourselves, so strip any leading dot before validating.
+            if (modalPlatform === "bedrock") val = val.replace(/^\.+\s*/, "");
             if (!rules.re.test(val)) {
                 toast(rules.error, true);
                 return;
@@ -733,9 +750,9 @@
                     return;
                 }
                 Store.platform = "bedrock";
-                Store.user = resolved.gamertag; // canonical caps/spaces
+                Store.user = resolved.gamertag; // real gamertag WITH spaces — Tebex needs this
                 Store.xuid = resolved.xuid;
-                displayName = deliveryUsername(); // ".Hero brine8026"
+                displayName = displayUsername(); // shown with underscores: ".Hero_brine8026"
             } else {
                 Store.platform = "java";
                 Store.user = val;
@@ -787,7 +804,7 @@
                 <h4>2. Purchases &amp; payment</h4>
                 <p>All payments are processed securely by <a href="https://www.tebex.io" target="_blank" rel="noopener">Tebex</a>, our authorised payment partner. We never see or store your card details. Prices are shown in the currency set by the store and may change at any time without notice.</p>
                 <h4>3. Delivery of virtual items</h4>
-                <p>Virtual items are delivered to the Minecraft account (Java username or Bedrock gamertag) you provide at checkout. It is your responsibility to enter the correct account. Items are usually delivered instantly, but delivery may take up to 24 hours. You may need to rejoin the server for items to appear.</p>
+                <p>Virtual items are delivered automatically to the Minecraft account (Java username or Bedrock gamertag) you provide at checkout, so please make sure it is correct. Delivery is usually instant but can take up to 24 hours, and you may need to rejoin the server for items to appear. <strong>If you don't receive your items, open a ticket in our <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord</a> and a staff member will deliver them to you manually.</strong></p>
                 <h4>4. Nature of virtual items</h4>
                 <p>Virtual items have no real-world monetary value, cannot be exchanged for cash, and are licensed to you for use on the server — not sold as goods you own. We may modify, replace or remove any item, perk or feature to keep the server balanced and running.</p>
                 <h4>5. Conduct</h4>
@@ -823,18 +840,16 @@
                 <p>For any privacy request, contact us via our <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord server</a>.</p>
             `
         },
-        refunds: {
-            title: "Refund Policy",
+        delivery: {
+            title: "Delivery & Missing Items",
             body: `
-                <p>Because purchases unlock digital items that are delivered instantly, all sales are generally considered final. We do, however, want every purchase to be fair.</p>
-                <h4>1. Delivery issues</h4>
-                <p>If an item you paid for was not delivered, contact us within 7 days on <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord</a> with your order details. We'll investigate and re-deliver or refund where appropriate.</p>
-                <h4>2. Accidental or duplicate purchases</h4>
-                <p>Contact us as soon as possible. If the item has not yet been used or consumed, we may be able to reverse the purchase at our discretion.</p>
-                <h4>3. Chargebacks</h4>
-                <p>Please talk to us before opening a payment dispute. Fraudulent chargebacks may result in loss of purchased perks and a server ban.</p>
-                <h4>4. How to request</h4>
-                <p>All refund requests are handled through our <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord support server</a>. Include your username, the package name, and the approximate date of purchase.</p>
+                <p>Every purchase is delivered <strong>automatically</strong> to the account you enter at checkout — there's nothing else you need to do.</p>
+                <h4>When you'll get your items</h4>
+                <p>Delivery is usually instant. During busy periods, or if you're offline at the time, it can take up to 24 hours. You may need to rejoin the server for ranks, keys or gems to show up.</p>
+                <h4>Didn't receive something?</h4>
+                <p>If an item you paid for hasn't arrived, don't worry — open a ticket in our <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord</a> with your username and what you bought, and a staff member will deliver it to you manually.</p>
+                <h4>A note on refunds</h4>
+                <p>Because items are digital and delivered instantly, we don't offer cash refunds — but we will always make sure you actually receive what you paid for. Just reach out on Discord and we'll sort it out.</p>
             `
         }
     };
