@@ -28,6 +28,11 @@
         set user(v) { v ? localStorage.setItem("taxsmp_user", v) : localStorage.removeItem("taxsmp_user"); },
         get platform() { return localStorage.getItem("taxsmp_platform") === "bedrock" ? "bedrock" : "java"; },
         set platform(v) { localStorage.setItem("taxsmp_platform", v === "bedrock" ? "bedrock" : "java"); },
+        // Bedrock only: the resolved Xbox XUID (Floodgate identity) for the
+        // current player. Lets us send a verified account to Tebex instead of
+        // relying on the raw text the player typed.
+        get xuid() { return localStorage.getItem("taxsmp_xuid") || ""; },
+        set xuid(v) { v ? localStorage.setItem("taxsmp_xuid", v) : localStorage.removeItem("taxsmp_xuid"); },
         get cart() {
             try { return JSON.parse(localStorage.getItem("taxsmp_cart") || "[]"); }
             catch { return []; }
@@ -54,30 +59,60 @@
     // The tricky part: what a Bedrock player TYPES is their in-game Floodgate
     // name (e.g. "hero_brine8026") — Floodgate lowercases and turns spaces into
     // "_". But Tebex needs the REAL Xbox gamertag with correct spaces AND
-    // capitalisation (".Hero brine8026"). So for Bedrock we resolve the typed
-    // name to the canonical gamertag through the GeyserMC global API (the same
-    // source Tebex uses) and send that. Java names go straight through.
+    // capitalisation (".Hero brine8026"). So for Bedrock we look the typed name
+    // up against the GeyserMC global API (the same source Tebex uses) to find
+    // the player's Xbox account by XUID, then send the canonical gamertag.
+    // Java names go straight through.
     const GEYSER_API = "https://api.geysermc.org/v2/xbox";
-    const resolveTebexUsername = async (typed, platform) => {
-        if (platform !== "bedrock") return typed;              // Java: send as-is
-        if (typed.startsWith(FLOODGATE_PREFIX)) return typed;  // already resolved
 
-        // Floodgate maps spaces -> "_"; try the space form first, then verbatim.
-        const spaced = typed.replace(/_/g, " ");
-        const candidates = spaced === typed ? [typed] : [spaced, typed];
-        for (const cand of candidates) {
+    // Build every plausible spelling of a typed Bedrock name, most-likely first.
+    // A player might type their Floodgate in-game name ("hero_brine8026"), their
+    // real gamertag with spaces ("Hero brine8026"), or a mix — all of which map
+    // to the same Xbox account, so we try each until one resolves.
+    const bedrockCandidates = (typed) => {
+        const t = typed.trim().replace(/\s+/g, " ");
+        // Floodgate turns spaces into "_", so the space form is the likeliest
+        // real gamertag. Keep the verbatim/underscore forms as fallbacks.
+        return [...new Set([
+            t.replace(/_/g, " "),   // "hero brine8026"
+            t,                       // exactly as typed
+            t.replace(/[_ ]+/g, " ") // collapse any mix of "_" and spaces
+        ])].filter(Boolean);
+    };
+
+    // Resolve a typed Bedrock name to a verified Xbox account. Returns
+    // { xuid, gamertag } (gamertag correctly cased/spaced) or null when no
+    // account matches any spelling — i.e. the name really is invalid.
+    const resolveBedrock = async (typed) => {
+        for (const cand of bedrockCandidates(typed)) {
             try {
                 const xr = await fetch(`${GEYSER_API}/xuid/${encodeURIComponent(cand)}`);
                 if (!xr.ok) continue;
-                const { xuid } = await xr.json();
+                const data = await xr.json().catch(() => ({}));
+                const xuid = data && data.xuid != null ? String(data.xuid) : "";
                 if (!xuid) continue;
-                const gr = await fetch(`${GEYSER_API}/gamertag/${xuid}`);
-                if (!gr.ok) continue;
-                const { gamertag } = await gr.json();
-                if (gamertag) return FLOODGATE_PREFIX + gamertag; // e.g. ".Hero brine8026"
+                // Look the XUID back up to recover the correctly-cased gamertag.
+                let gamertag = cand;
+                try {
+                    const gr = await fetch(`${GEYSER_API}/gamertag/${encodeURIComponent(xuid)}`);
+                    if (gr.ok) {
+                        const g = await gr.json().catch(() => ({}));
+                        if (g && g.gamertag) gamertag = g.gamertag;
+                    }
+                } catch { /* keep the candidate spelling */ }
+                return { xuid, gamertag };
             } catch { /* try next candidate */ }
         }
-        return null; // couldn't resolve — caller surfaces a helpful error
+        return null; // no Xbox account matched — the name is genuinely invalid
+    };
+
+    // Used at checkout as a safety net (e.g. names stored before resolution ran).
+    // Turns the typed/stored Bedrock name into the dotted gamertag Tebex expects.
+    const resolveTebexUsername = async (typed, platform) => {
+        if (platform !== "bedrock") return typed;              // Java: send as-is
+        if (typed.startsWith(FLOODGATE_PREFIX)) return typed;  // already dotted
+        const res = await resolveBedrock(typed);
+        return res ? FLOODGATE_PREFIX + res.gamertag : null;
     };
 
     // Validation + hint per edition. Tebex resolves the dotted Bedrock name via
@@ -99,7 +134,7 @@
             re: /^[A-Za-z0-9_ ]{3,16}$/,
             pattern: "[A-Za-z0-9_ ]+",
             placeholder: "e.g. Hero brine8026",
-            hint: "Your Bedrock gamertag or in-game name (3–16 chars).",
+            hint: "Type your in-game name — we verify it against Xbox automatically.",
             error: "Bedrock gamertag must be 3–16 letters, numbers, spaces or underscores"
         }
     };
@@ -542,6 +577,23 @@
         pendingAction = null;
     };
 
+    // Toggle the "Finding your account…" busy state on the username form while
+    // we verify a Bedrock name against Xbox.
+    const setUserFormBusy = (busy, label) => {
+        const btn = $("#user-form .btn-primary");
+        const input = $("#user-input");
+        if (input) input.disabled = busy;
+        if (!btn) return;
+        if (busy) {
+            btn.dataset.label = btn.dataset.label || btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<span class="btn-spinner" aria-hidden="true"></span>${label || "Please wait…"}`;
+        } else {
+            btn.disabled = false;
+            if (btn.dataset.label) { btn.innerHTML = btn.dataset.label; delete btn.dataset.label; }
+        }
+    };
+
     const updateUserBanner = () => {
         const banner = $("#user-banner");
         if (!banner) return;
@@ -658,7 +710,7 @@
         });
 
         // Submit username form
-        $("#user-form")?.addEventListener("submit", (e) => {
+        $("#user-form")?.addEventListener("submit", async (e) => {
             e.preventDefault();
             const rules = PLATFORM_RULES[modalPlatform];
             const val = $("#user-input").value.trim().replace(/\s+/g, " ");
@@ -666,12 +718,33 @@
                 toast(rules.error, true);
                 return;
             }
-            Store.user = val;
-            Store.platform = modalPlatform;
+
+            let displayName = val;
+            if (modalPlatform === "bedrock") {
+                // Resolve the typed name to a real Xbox account by XUID so it
+                // works even when the in-game name "looks" wrong (underscores
+                // vs spaces, casing). Only a name with no matching Xbox account
+                // is treated as invalid.
+                setUserFormBusy(true, "Finding your account…");
+                const resolved = await resolveBedrock(val);
+                setUserFormBusy(false);
+                if (!resolved) {
+                    toast(`We couldn't find "${val}" on Xbox Live. Double-check your Bedrock name and try again.`, true);
+                    return;
+                }
+                Store.platform = "bedrock";
+                Store.user = resolved.gamertag; // canonical caps/spaces
+                Store.xuid = resolved.xuid;
+                displayName = deliveryUsername(); // ".Hero brine8026"
+            } else {
+                Store.platform = "java";
+                Store.user = val;
+                Store.xuid = "";
+            }
             updateUserBanner();
             renderCart(); // keep the checkout account row in sync
             $("#user-modal").classList.add("hidden");
-            toast(`Welcome, ${val}!`);
+            toast(`Welcome, ${displayName}!`);
             // Resume whatever the user was trying to do
             const action = pendingAction;
             pendingAction = null;
@@ -688,7 +761,7 @@
         $("#checkout-btn")?.addEventListener("click", doCheckout);
 
         document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") { closeCart(); hideUserModal(); }
+            if (e.key === "Escape") { closeCart(); hideUserModal(); closeLegal(); }
         });
 
         // Status from Tebex return
@@ -702,10 +775,99 @@
         }
     };
 
+    /* ========== Legal (Terms / Privacy / Refunds) ========== */
+    const LEGAL_UPDATED = "22 July 2026";
+    const LEGAL = {
+        terms: {
+            title: "Terms of Service",
+            body: `
+                <p>Welcome to the TaxSMP store. By browsing this store or completing a purchase you agree to these Terms of Service. Please read them carefully.</p>
+                <h4>1. Who we are</h4>
+                <p>This store sells optional in-game cosmetic and utility packages ("virtual items") for the TaxSMP Minecraft server. TaxSMP is an independent community server and is <strong>not affiliated with, endorsed by or associated with Mojang Studios or Microsoft</strong>.</p>
+                <h4>2. Purchases &amp; payment</h4>
+                <p>All payments are processed securely by <a href="https://www.tebex.io" target="_blank" rel="noopener">Tebex</a>, our authorised payment partner. We never see or store your card details. Prices are shown in the currency set by the store and may change at any time without notice.</p>
+                <h4>3. Delivery of virtual items</h4>
+                <p>Virtual items are delivered to the Minecraft account (Java username or Bedrock gamertag) you provide at checkout. It is your responsibility to enter the correct account. Items are usually delivered instantly, but delivery may take up to 24 hours. You may need to rejoin the server for items to appear.</p>
+                <h4>4. Nature of virtual items</h4>
+                <p>Virtual items have no real-world monetary value, cannot be exchanged for cash, and are licensed to you for use on the server — not sold as goods you own. We may modify, replace or remove any item, perk or feature to keep the server balanced and running.</p>
+                <h4>5. Conduct</h4>
+                <p>Purchasing does not exempt you from the server rules. Access to purchased perks may be suspended without refund if you breach the rules, cheat, or attempt fraudulent chargebacks.</p>
+                <h4>6. Changes</h4>
+                <p>We may update these terms from time to time. Continued use of the store after changes take effect means you accept the revised terms.</p>
+                <h4>7. Contact</h4>
+                <p>Questions about your order? Reach us on our <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord server</a>.</p>
+            `
+        },
+        privacy: {
+            title: "Privacy Policy",
+            body: `
+                <p>This Privacy Policy explains what information the TaxSMP store handles and how it is used. We keep data collection to the minimum needed to deliver your purchase.</p>
+                <h4>1. Information we handle</h4>
+                <ul>
+                    <li><strong>Minecraft account</strong> — the Java username or Bedrock gamertag you enter, so items can be delivered to you.</li>
+                    <li><strong>Cart &amp; preferences</strong> — stored only in your own browser (local storage) so your basket and account persist between visits.</li>
+                    <li><strong>Payment information</strong> — collected and processed entirely by Tebex. We do not receive or store your card or billing details.</li>
+                </ul>
+                <h4>2. Third-party services</h4>
+                <ul>
+                    <li><a href="https://www.tebex.io" target="_blank" rel="noopener">Tebex</a> — handles payments and order processing under its own privacy policy.</li>
+                    <li><a href="https://geysermc.org" target="_blank" rel="noopener">GeyserMC</a> — used to verify Bedrock gamertags against Xbox so items reach the right account.</li>
+                </ul>
+                <h4>3. How we use it</h4>
+                <p>Information is used solely to process and deliver your order, provide support, and prevent fraud. We do not sell your data or use it for advertising.</p>
+                <h4>4. Local storage</h4>
+                <p>Your cart, chosen edition and username are saved in your browser's local storage. You can clear them at any time by clearing your browser data.</p>
+                <h4>5. Children</h4>
+                <p>If you are under the age of 18, please get permission from a parent or guardian before making a purchase.</p>
+                <h4>6. Contact</h4>
+                <p>For any privacy request, contact us via our <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord server</a>.</p>
+            `
+        },
+        refunds: {
+            title: "Refund Policy",
+            body: `
+                <p>Because purchases unlock digital items that are delivered instantly, all sales are generally considered final. We do, however, want every purchase to be fair.</p>
+                <h4>1. Delivery issues</h4>
+                <p>If an item you paid for was not delivered, contact us within 7 days on <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord</a> with your order details. We'll investigate and re-deliver or refund where appropriate.</p>
+                <h4>2. Accidental or duplicate purchases</h4>
+                <p>Contact us as soon as possible. If the item has not yet been used or consumed, we may be able to reverse the purchase at our discretion.</p>
+                <h4>3. Chargebacks</h4>
+                <p>Please talk to us before opening a payment dispute. Fraudulent chargebacks may result in loss of purchased perks and a server ban.</p>
+                <h4>4. How to request</h4>
+                <p>All refund requests are handled through our <a href="${DISCORD_INVITE}" target="_blank" rel="noopener">Discord support server</a>. Include your username, the package name, and the approximate date of purchase.</p>
+            `
+        }
+    };
+
+    const openLegal = (key) => {
+        const doc = LEGAL[key];
+        if (!doc) return;
+        $("#legal-title").textContent = doc.title;
+        $("#legal-updated").textContent = `Last updated ${LEGAL_UPDATED}`;
+        const body = $("#legal-body");
+        body.innerHTML = doc.body;
+        body.scrollTop = 0;
+        $("#legal-modal")?.classList.remove("hidden");
+    };
+    const closeLegal = () => $("#legal-modal")?.classList.add("hidden");
+
+    const initLegal = () => {
+        const yearEl = $("#footer-year");
+        if (yearEl) yearEl.textContent = String(new Date().getFullYear());
+        $$("[data-legal]").forEach(btn => {
+            btn.addEventListener("click", () => openLegal(btn.dataset.legal));
+        });
+        $$("[data-close-legal]").forEach(el => el.addEventListener("click", closeLegal));
+        $("#legal-modal")?.addEventListener("click", (e) => {
+            if (e.target === e.currentTarget) closeLegal();
+        });
+    };
+
     /* ========== Boot ========== */
     document.addEventListener("DOMContentLoaded", () => {
         initParticles();
         initCopyIp();
+        initLegal();
         if (document.body.classList.contains("store-page")) {
             initStore();
         } else {

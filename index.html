@@ -103,7 +103,30 @@
     </main>
 
     <footer class="store-footer">
-        <p>TaxSMP is not affiliated with Mojang Studios or Microsoft. Payments processed securely by Tebex.</p>
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <img class="footer-logo" src="assets/logo-island.png" alt="TaxSMP"
+                     onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'logo-text-fallback', textContent:'TAXSMP'}))" />
+                <p class="footer-tagline">The official TaxSMP store — ranks, crate keys and gems, delivered instantly in-game.</p>
+                <button class="tile-ip footer-ip" type="button" data-ip="taxsmp.net">
+                    <span class="tile-ip-icon" aria-hidden="true">⧉</span>
+                    <span class="tile-ip-label">TAXSMP.NET</span>
+                </button>
+            </div>
+
+            <nav class="footer-links" aria-label="Footer">
+                <span class="footer-links-title">Legal &amp; Support</span>
+                <button type="button" class="footer-link" data-legal="terms">Terms of Service</button>
+                <button type="button" class="footer-link" data-legal="privacy">Privacy Policy</button>
+                <button type="button" class="footer-link" data-legal="refunds">Refund Policy</button>
+                <a class="footer-link" href="https://discord.gg/3eSTqYaAuR" target="_blank" rel="noopener">Discord Support</a>
+            </nav>
+        </div>
+
+        <div class="footer-bottom">
+            <p class="footer-disclaimer">TaxSMP is not affiliated with, endorsed by or associated with Mojang Studios or Microsoft. Payments are processed securely by Tebex.</p>
+            <p class="footer-copy">© <span id="footer-year">2026</span> TaxSMP. All rights reserved.</p>
+        </div>
     </footer>
 
     <!-- Full-screen checkout (z-index 200) -->
@@ -206,6 +229,16 @@
                     <p class="form-hint" id="user-hint">3–16 characters. Letters, numbers and underscores only.</p>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <!-- Legal modal (Terms / Privacy / Refunds) -->
+    <div class="modal-backdrop hidden" id="legal-modal">
+        <div class="modal legal-card" role="dialog" aria-labelledby="legal-title" aria-modal="true">
+            <button class="modal-close" type="button" data-close-legal aria-label="Close">✕</button>
+            <h3 id="legal-title">Terms of Service</h3>
+            <p class="legal-updated" id="legal-updated">Last updated 22 July 2026</p>
+            <div class="legal-body" id="legal-body"></div>
         </div>
     </div>
 
