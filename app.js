@@ -15,6 +15,30 @@
         catch { return `$${Number(n).toFixed(2)}`; }
     };
 
+    // Sale info comes straight from Tebex (base_price vs total_price). A sale
+    // is created/scheduled in the Tebex dashboard and enforced server-side at
+    // checkout, so it can't be faked or abused from the browser — we only
+    // reflect what Tebex reports.
+    const saleInfo = (pkg) => {
+        const base = Number(pkg.base_price) || 0;
+        const total = pkg.total_price != null ? Number(pkg.total_price) : base;
+        const onSale = total < base - 0.001 && base > 0;
+        return { base, total, onSale, pct: onSale ? Math.round((1 - total / base) * 100) : 0, currency: pkg.currency || "USD" };
+    };
+    // The price to charge / add to cart (already discounted by Tebex).
+    const effectivePrice = (pkg) => saleInfo(pkg).total;
+    // Price markup: struck-through original + discounted price when on sale.
+    const priceHTML = (pkg) => {
+        const s = saleInfo(pkg);
+        return s.onSale
+            ? `<span class="price-was">${fmt(s.base, s.currency)}</span><span class="price-now">${fmt(s.total, s.currency)}</span>`
+            : fmt(s.total, s.currency);
+    };
+    const dealBadge = (pkg) => {
+        const s = saleInfo(pkg);
+        return s.onSale ? `<span class="deal-badge">🔥 ${s.pct}% off</span>` : "";
+    };
+
     const sanitize = (html) => {
         const div = document.createElement("div");
         div.innerHTML = html || "";
@@ -310,12 +334,13 @@
                     ${rank.name}
                 </h2>
                 <p class="rank-sub">${meta.sub}</p>
+                ${dealBadge(rank)}
                 <ul class="rank-perks">
                     ${perks.map(p => `<li>${p}</li>`).join("")}
                 </ul>
                 <div class="rank-buy-row">
                     <div>
-                        <div class="rank-price">${fmt(rank.base_price, rank.currency)}</div>
+                        <div class="rank-price">${priceHTML(rank)}</div>
                         <span class="rank-price-sub">${subPeriod}</span>
                     </div>
                     <button class="btn-buy-rank" data-buy-rank="${rank.id}">Add to Cart</button>
@@ -367,11 +392,12 @@
             const qty = qtySelection.get(k.id) || 1;
             return `
                 <article class="key-card" data-key="${k.id}">
+                    ${dealBadge(k)}
                     <div class="key-image-wrap">
                         ${k.image ? `<img src="${k.image}" alt="${k.name}" />` : ""}
                     </div>
                     <h3 class="key-name">${k.name}</h3>
-                    <div class="key-price">${fmt(k.base_price, k.currency)}</div>
+                    <div class="key-price">${priceHTML(k)}</div>
                     <div class="qty-pills" role="radiogroup">
                         ${[1, 5, 10, 20].map(q => `
                             <button type="button" class="qty-pill ${q === qty ? "active" : ""}" data-qty="${q}">${q}x</button>
@@ -419,7 +445,7 @@
             cart.push({
                 id: pkg.id,
                 name: pkg.name,
-                price: pkg.base_price,
+                price: effectivePrice(pkg),
                 currency: pkg.currency || "USD",
                 image: pkg.image || "",
                 type: pkg.type || "single",
@@ -705,6 +731,49 @@
         }
     };
 
+    /* ========== Purchase celebration ========== */
+    const launchConfetti = () => {
+        const canvas = $("#confetti");
+        if (!canvas) return;
+        const ctx = canvas.getContext("2d");
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const W = () => window.innerWidth, H = () => window.innerHeight;
+        canvas.width = W() * dpr; canvas.height = H() * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const colors = ["#ffc233", "#f59e0b", "#22d39a", "#ff5571", "#5865F2", "#ffffff"];
+        const N = Math.min(200, Math.floor(W() / 6));
+        const pieces = Array.from({ length: N }, () => ({
+            x: Math.random() * W(),
+            y: -20 - Math.random() * H() * 0.6,
+            w: 6 + Math.random() * 6, h: 8 + Math.random() * 8,
+            vx: (Math.random() - 0.5) * 2.4, vy: 2 + Math.random() * 3.6,
+            rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.32,
+            color: colors[Math.floor(Math.random() * colors.length)]
+        }));
+        const start = performance.now();
+        const tick = (t) => {
+            ctx.clearRect(0, 0, W(), H());
+            let alive = false;
+            for (const p of pieces) {
+                p.x += p.vx; p.y += p.vy; p.vy += 0.03; p.rot += p.vr;
+                if (p.y < H() + 30) alive = true;
+                ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+                ctx.fillStyle = p.color; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+                ctx.restore();
+            }
+            if (alive && t - start < 6500) requestAnimationFrame(tick);
+            else ctx.clearRect(0, 0, W(), H());
+        };
+        requestAnimationFrame(tick);
+    };
+    const celebrate = () => {
+        const el = $("#celebrate");
+        if (!el) return;
+        el.classList.remove("hidden");
+        launchConfetti();
+    };
+    const closeCelebrate = () => $("#celebrate")?.classList.add("hidden");
+
     /* ========== Store init ========== */
     const initStore = () => {
         loadStore();
@@ -776,15 +845,17 @@
         });
 
         $("#checkout-btn")?.addEventListener("click", doCheckout);
+        $("#celebrate-close")?.addEventListener("click", closeCelebrate);
+        $("#celebrate")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeCelebrate(); });
 
         document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") { closeCart(); hideUserModal(); closeLegal(); }
+            if (e.key === "Escape") { closeCart(); hideUserModal(); closeLegal(); closeCelebrate(); }
         });
 
         // Status from Tebex return
         const params = new URLSearchParams(window.location.search);
         if (params.get("status") === "complete") {
-            toast("Thanks for your purchase! Items will be delivered in-game.");
+            celebrate();
             history.replaceState({}, "", window.location.pathname);
         } else if (params.get("status") === "cancel") {
             toast("Payment cancelled.", true);
