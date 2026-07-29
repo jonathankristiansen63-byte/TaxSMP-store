@@ -321,7 +321,6 @@
                 <p>This is almost always caused by an <strong>ad-blocker</strong> or a strict browser <strong>privacy / tracking-protection</strong> setting blocking our payment provider (Tebex). Turn it off for this site, then try again.</p>
                 <div class="store-error-actions">
                     <button type="button" class="btn-primary" id="store-retry">Try again</button>
-                    <a class="btn-ghost" href="${WEBSTORE}" target="_blank" rel="noopener">Open on Tebex ›</a>
                 </div>
             </div>`;
         $("#store-retry")?.addEventListener("click", () => loadStore());
