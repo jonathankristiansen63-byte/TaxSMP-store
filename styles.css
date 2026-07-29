@@ -734,6 +734,33 @@ img.img-missing { opacity: 0.05; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Store load error / empty state */
+.store-error {
+    max-width: 440px;
+    margin-inline: auto;
+    background: var(--bg-2);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 34px 28px;
+    text-align: center;
+}
+.store-error-icon { font-size: 44px; line-height: 1; margin-bottom: 10px; }
+.store-error h3 { margin: 0 0 8px; font-size: 20px; font-weight: 800; color: var(--text); }
+.store-error p { margin: 0 0 20px; font-size: 14px; line-height: 1.6; color: var(--text-dim); }
+.store-error strong { color: var(--text); }
+.store-error-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+.store-error-actions .btn-primary,
+.store-error-actions .btn-ghost { width: auto; }
+
+/* Safety net: an unpopulated rank card must never render as a phantom box */
+.rank-featured:empty { min-height: 0; padding: 0; border: 0; margin: 0; }
+.rank-featured:empty::before { display: none; }
+
 .store-footer {
     position: relative;
     z-index: 1;
