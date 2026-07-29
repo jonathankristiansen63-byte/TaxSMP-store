@@ -278,18 +278,73 @@
     const qtySelection = new Map(); // package_id -> selected qty
     let pendingAction = null;       // function to run once username is set
 
+    // Fetch the catalogue with a timeout and a couple of retries. Transient
+    // network hiccups get a second chance; a hard block (ad-blocker / strict
+    // tracking protection killing the Tebex request) still surfaces cleanly.
+    const fetchCategories = async (attempts = 3) => {
+        let lastErr;
+        for (let i = 0; i < attempts; i++) {
+            try {
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 12000);
+                let res;
+                try {
+                    res = await fetch(`${API}/categories?includePackages=1`, {
+                        headers: { Accept: "application/json" },
+                        signal: ctrl.signal
+                    });
+                } finally { clearTimeout(timer); }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            } catch (err) {
+                lastErr = err;
+                if (i < attempts - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+            }
+        }
+        throw lastErr;
+    };
+
+    const productSections = ["#ranks-section", "#crates-section", "#gems-section"];
+    const setSectionsVisible = (show) =>
+        productSections.forEach(sel => $(sel)?.classList.toggle("hidden", !show));
+
+    const showStoreError = () => {
+        setSectionsVisible(false);
+        const loading = $("#loading");
+        if (!loading) return;
+        loading.classList.remove("hidden");
+        loading.innerHTML = `
+            <div class="store-error">
+                <div class="store-error-icon" aria-hidden="true">😕</div>
+                <h3>We couldn't load the store</h3>
+                <p>This is almost always caused by an <strong>ad-blocker</strong> or a strict browser <strong>privacy / tracking-protection</strong> setting blocking our payment provider (Tebex). Turn it off for this site, then try again.</p>
+                <div class="store-error-actions">
+                    <button type="button" class="btn-primary" id="store-retry">Try again</button>
+                    <a class="btn-ghost" href="${WEBSTORE}" target="_blank" rel="noopener">Open on Tebex ›</a>
+                </div>
+            </div>`;
+        $("#store-retry")?.addEventListener("click", () => loadStore());
+    };
+
     const loadStore = async () => {
+        const loading = $("#loading");
+        if (loading) {
+            loading.classList.remove("hidden");
+            loading.innerHTML = `<div class="spinner" aria-hidden="true"></div><p>Loading store…</p>`;
+        }
+        setSectionsVisible(true);
         try {
-            const res = await fetch(`${API}/categories?includePackages=1`, { headers: { Accept: "application/json" } });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
-            const cats = (json.data || []);
+            const json = await fetchCategories();
+            const cats = (json && json.data) || [];
             const ranks = (cats.find(c => /rank/i.test(c.name))?.packages || [])
                 .slice().sort((a, b) => (a.base_price || 0) - (b.base_price || 0));
             const keys = (cats.find(c => /crate|key/i.test(c.name))?.packages || [])
                 .slice().sort((a, b) => (a.base_price || 0) - (b.base_price || 0));
             const gems = (cats.find(c => /gem|rub(y|ies)|crystal|coin|token|currency/i.test(c.name))?.packages || [])
                 .slice().sort((a, b) => (a.base_price || 0) - (b.base_price || 0));
+            // A successful response with no packages at all means something
+            // upstream is wrong — treat it like a load failure, not an empty store.
+            if (!ranks.length && !keys.length && !gems.length) { showStoreError(); return; }
             storeData = { ranks, keys, gems };
             renderRanks();
             renderKeys();
@@ -298,10 +353,7 @@
             $("#loading")?.classList.add("hidden");
         } catch (err) {
             console.error(err);
-            const loading = $("#loading");
-            if (loading) {
-                loading.innerHTML = `<p style="color:var(--text-dim)">Couldn't load store. <a href="${WEBSTORE}" style="color:var(--brand-blue);text-decoration:underline" target="_blank" rel="noopener">Visit Tebex directly →</a></p>`;
-            }
+            showStoreError();
         }
     };
 
