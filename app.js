@@ -280,8 +280,9 @@
 
     // Fetch the catalogue with a timeout and a couple of retries. Transient
     // network hiccups get a second chance; a hard block (ad-blocker / strict
-    // tracking protection killing the Tebex request) still surfaces cleanly.
-    const fetchCategories = async (attempts = 3) => {
+    // tracking protection killing the Tebex request) surfaces cleanly to the
+    // error card, which links blocked users to the official Tebex store.
+    const fetchCategories = async (attempts = 2) => {
         let lastErr;
         for (let i = 0; i < attempts; i++) {
             try {
@@ -298,7 +299,7 @@
                 return await res.json();
             } catch (err) {
                 lastErr = err;
-                if (i < attempts - 1) await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+                if (i < attempts - 1) await new Promise(r => setTimeout(r, 800 * (i + 1)));
             }
         }
         throw lastErr;
@@ -731,6 +732,8 @@
             const proto = window.location.protocol;
             const onWeb = proto === "http:" || proto === "https:";
             const base = onWeb ? (window.location.origin + window.location.pathname) : WEBSTORE;
+            // Checkout goes DIRECT to Tebex only — never through a relay — so the
+            // payment/redirect path can't be tampered with by a third party.
             const basketRes = await fetch(`${API}/baskets`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -782,7 +785,16 @@
             window.location.assign(checkoutUrl);
         } catch (err) {
             console.error(err);
-            toast(err.message || "Checkout failed. Try again.", true);
+            // A TypeError with no HTTP status means the request never left the
+            // browser — a privacy/ad-block extension is blocking secure checkout.
+            // Send them to the official Tebex store (a first-party page those
+            // blockers allow) so they can still buy safely.
+            if (err instanceof TypeError) {
+                toast("Your browser is blocking secure checkout. Opening our official Tebex store…", true);
+                setTimeout(() => window.open(WEBSTORE, "_blank", "noopener"), 1200);
+            } else {
+                toast(err.message || "Checkout failed. Try again.", true);
+            }
             btn.disabled = false;
             label.textContent = "Proceed to checkout »";
         }
