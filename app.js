@@ -8,11 +8,6 @@
     const DISCORD_INVITE = "https://discord.gg/3eSTqYaAuR";
     const SERVER_IP = "taxsmp.net";
 
-    // Sale banner text. The bar itself only appears while Tebex reports a
-    // discount on at least one package; set `title` to name the sale (e.g.
-    // "Halloween Sale") and `endsAt` to an ISO date/time to show a countdown.
-    const SALE_BANNER = { title: "", endsAt: "" };
-
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
@@ -386,7 +381,6 @@
             renderKeys();
             renderGems();
             setCategoryArt();
-            renderSaleBar();
             $("#loading")?.classList.add("hidden");
         } catch (err) {
             console.error(err);
@@ -560,36 +554,6 @@
                 requestAddToCart(pkg, q);
             });
         });
-    };
-
-    /* ========== Sale bar ========== */
-    let saleTimer = null;
-    const renderSaleBar = () => {
-        const bar = $("#sale-bar");
-        if (!bar) return;
-        const pcts = [...storeData.ranks, ...storeData.keys, ...storeData.gems]
-            .map(saleInfo).filter(s => s.onSale).map(s => s.pct);
-        if (!pcts.length) { bar.classList.add("hidden"); return; }
-        const max = Math.max(...pcts);
-        $("#sale-pill").textContent = pcts.every(p => p === max) ? `${max}% SALE` : `UP TO ${max}% OFF`;
-        $("#sale-title").textContent = SALE_BANNER.title || "Sale Live";
-        bar.classList.remove("hidden");
-
-        const end = Date.parse(SALE_BANNER.endsAt);
-        const timer = $("#sale-timer");
-        if (!timer || !Number.isFinite(end)) return;
-        const pad = (n) => String(n).padStart(2, "0");
-        const tick = () => {
-            const left = Math.max(0, end - Date.now());
-            timer.classList.toggle("hidden", left <= 0);
-            if (left <= 0) { clearInterval(saleTimer); return; }
-            const s = Math.floor(left / 1000);
-            const parts = { d: Math.floor(s / 86400), h: Math.floor(s / 3600) % 24, m: Math.floor(s / 60) % 60, s: s % 60 };
-            timer.querySelectorAll("[data-t]").forEach(el => { el.textContent = pad(parts[el.dataset.t]); });
-        };
-        clearInterval(saleTimer);
-        tick();
-        saleTimer = setInterval(tick, 1000);
     };
 
     /* ========== Live counts (players online + Discord) ========== */
