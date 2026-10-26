@@ -682,6 +682,14 @@
     // skin; Bedrock/dotted names fall back to a Steve head via mc-heads.
     const skinHeadUrl = (name, size = 40) => `https://mc-heads.net/avatar/${encodeURIComponent(name || "Steve")}/${size}`;
 
+    const USER_ICON = `<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"/></svg>`;
+    const TRASH_ICON = `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2Zm-3 6h12l-1 12H7L6 9Z"/></svg>`;
+
+    // The three "Complete purchase" boxes must all be ticked before checkout.
+    const agreeBoxes = () => $$("#co-checks [data-agree]");
+    const allAgreed = () => agreeBoxes().every(b => b.checked);
+    const updateAgreeState = () => $("#checkout-btn")?.classList.toggle("not-ready", !allAgreed());
+
     const renderCart = () => {
         const rowsEl = $("#checkout-rows");
         const tableEl = $("#checkout-table");
@@ -691,16 +699,9 @@
         if (!rowsEl) return;
         const cart = Store.cart;
         const ccy = cart[0]?.currency || "USD";
-
-        // Account row (always reflects the current player)
         const display = displayUsername() || "Not signed in";
-        $("#account-name").textContent = display;
-        const head = $("#account-head");
-        if (head) {
-            head.onerror = () => { head.onerror = null; head.src = skinHeadUrl("Steve"); };
-            head.src = skinHeadUrl(Store.user);
-        }
-        $("#currency-label").textContent = ccy;
+        const verify = $("#co-verify-name");
+        if (verify) verify.textContent = display;
 
         if (!cart.length) {
             rowsEl.innerHTML = "";
@@ -717,8 +718,8 @@
         rowsEl.innerHTML = cart.map(it => `
             <div class="checkout-row" data-id="${it.id}">
                 <div class="co-name">
-                    ${it.image ? `<img class="co-icon" src="${it.image}" alt="" />` : ""}
-                    <span>${it.name}</span>
+                    ${it.image ? `<img class="co-icon" src="${esc(it.image)}" alt="" />` : ""}
+                    <span>${esc(it.name)}</span>
                 </div>
                 <div class="co-price">${fmt(it.price * it.quantity, it.currency)}</div>
                 <div class="co-qty">
@@ -730,8 +731,12 @@
                                 <button type="button" class="qty-step" data-inc aria-label="Increase">+</button>
                             </span>`
                     }
-                    <button type="button" class="row-btn row-info" data-info aria-label="Details">i</button>
-                    <button type="button" class="row-btn row-remove" data-remove aria-label="Remove">✕</button>
+                </div>
+                <div class="co-end">
+                    <button type="button" class="co-user" data-user title="Delivered to this account (click to change)">
+                        ${USER_ICON}<span>${esc(display)}</span>
+                    </button>
+                    <button type="button" class="row-btn row-remove" data-remove aria-label="Remove ${esc(it.name)}">${TRASH_ICON}</button>
                 </div>
             </div>
         `).join("");
@@ -747,24 +752,40 @@
                 setQty(id, it.quantity - 1);
             });
             row.querySelector("[data-remove]")?.addEventListener("click", () => removeFromCart(id));
-            row.querySelector("[data-info]")?.addEventListener("click", () => {
-                const it = Store.cart.find(i => i.id === id);
-                if (it) toast(`${it.name} — ${it.type === "subscription" ? "Recurring subscription" : "One-time purchase"}`);
-            });
+            row.querySelector("[data-user]")?.addEventListener("click", () => showUserModal());
         });
 
         const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
         totalEl.textContent = fmt(total, ccy);
+        updateAgreeState();
     };
 
-    const openCart = () => {
+    // Checkout is shown in place of the store, under the header. It gets its
+    // own #checkout history entry so the browser Back button returns to the
+    // store, and the store's scroll position is restored on the way back.
+    let storeScroll = 0;
+    const showCheckout = () => {
+        if (!document.body.classList.contains("checkout-open")) storeScroll = window.scrollY;
         renderCart();
         $("#checkout-screen")?.classList.remove("hidden");
         document.body.classList.add("checkout-open");
+        window.scrollTo({ top: 0, behavior: "instant" });
     };
-    const closeCart = () => {
+    const hideCheckout = () => {
+        if (!document.body.classList.contains("checkout-open")) return;
         $("#checkout-screen")?.classList.add("hidden");
         document.body.classList.remove("checkout-open");
+        window.scrollTo({ top: storeScroll, behavior: "instant" });
+    };
+    const openCart = () => {
+        if (location.hash !== "#checkout") history.pushState({ checkout: true }, "", "#checkout");
+        showCheckout();
+    };
+    const closeCart = () => {
+        if (!document.body.classList.contains("checkout-open")) return;
+        hideCheckout();
+        if (history.state?.checkout) history.back();
+        else if (location.hash === "#checkout") history.replaceState(null, "", location.pathname + location.search);
     };
 
     /* ========== Username modal ========== */
@@ -846,6 +867,42 @@
     };
 
     /* ========== Checkout ========== */
+    // Tebex.js (loaded from js.tebex.io) shows the payment step as a popup
+    // over our page. If it was blocked we fall back to Tebex's full-page checkout.
+    const TEBEX_COLORS = [{ name: "primary", color: "#ffb11f" }];
+    let tebexBound = false;
+    let tebexPaid = false;
+
+    const resetCheckoutBtn = () => {
+        const btn = $("#checkout-btn");
+        const label = $("#checkout-label");
+        if (btn) btn.disabled = false;
+        if (label) label.textContent = "Checkout";
+    };
+
+    const bindTebexEvents = (tebex) => {
+        if (tebexBound) return;
+        tebexBound = true;
+        // Celebrate once the payment is done AND the popup is gone, whichever
+        // of the two events Tebex sends first.
+        const finishPaid = () => {
+            tebexPaid = false;
+            closeCart();
+            celebrate();
+        };
+        tebex.on("payment:complete", () => {
+            tebexPaid = true;
+            Store.cart = [];
+            updateCartBadge();
+            renderCart();
+            if (!tebex.isOpen) finishPaid();
+        });
+        tebex.on("close", () => {
+            resetCheckoutBtn();
+            if (tebexPaid) finishPaid();
+        });
+    };
+
     const doCheckout = async () => {
         const btn = $("#checkout-btn");
         const label = $("#checkout-label");
@@ -855,6 +912,12 @@
         if (!Store.user) {
             pendingAction = doCheckout;
             showUserModal();
+            return;
+        }
+        if (!allAgreed()) {
+            toast("Please tick all three boxes to continue", true);
+            const checks = $("#co-checks");
+            if (checks) { checks.classList.remove("shake"); void checks.offsetWidth; checks.classList.add("shake"); }
             return;
         }
 
@@ -921,6 +984,26 @@
             const checkoutUrl = lastResponse?.data?.links?.checkout
                 || `https://pay.tebex.io/${ident}`;
 
+            const tebex = window.Tebex?.checkout;
+            if (tebex) {
+                try {
+                    label.textContent = "Opening checkout…";
+                    bindTebexEvents(tebex);
+                    tebex.init({
+                        ident,
+                        theme: "dark",
+                        colors: TEBEX_COLORS,
+                        popupOnMobile: true,
+                        closeOnEsc: true,
+                        closeOnPaymentComplete: true
+                    });
+                    await tebex.launch();
+                    return; // the popup's "close" event re-enables the button
+                } catch (popupErr) {
+                    console.error(popupErr); // fall through to the full-page checkout
+                }
+            }
+
             label.textContent = "Redirecting…";
             Store.cart = [];
             window.location.assign(checkoutUrl);
@@ -936,8 +1019,7 @@
             } else {
                 toast(err.message || "Checkout failed. Try again.", true);
             }
-            btn.disabled = false;
-            label.textContent = "Proceed to checkout »";
+            resetCheckoutBtn();
         }
     };
 
@@ -1041,7 +1123,9 @@
                 Store.xuid = "";
             }
             updateAccountUI();
-            renderCart(); // keep the checkout account row in sync
+            const ownBox = $('#co-checks [data-agree="account"]');
+            if (ownBox) ownBox.checked = false; // they must re-confirm the new account
+            renderCart(); // keep the checkout rows in sync
             $("#user-modal").classList.add("hidden");
             toast(`Welcome, ${displayName}!`);
             // Resume whatever the user was trying to do
@@ -1052,18 +1136,22 @@
 
         $("#bar-user")?.addEventListener("click", () => showUserModal());
         $("#cp-login")?.addEventListener("click", () => showUserModal());
-        $("#switch-account")?.addEventListener("click", () => showUserModal());
-        $("#currency-select")?.addEventListener("click", () => {
-            const ccy = Store.cart[0]?.currency || "USD";
-            toast(`Prices are shown in ${ccy} (set by the store)`);
-        });
+        agreeBoxes().forEach(box => box.addEventListener("change", updateAgreeState));
+        window.addEventListener("popstate", () => (location.hash === "#checkout" ? showCheckout() : hideCheckout()));
+        if (location.hash === "#checkout") showCheckout();
 
         $("#checkout-btn")?.addEventListener("click", doCheckout);
         $("#celebrate-close")?.addEventListener("click", closeCelebrate);
         $("#celebrate")?.addEventListener("click", (e) => { if (e.target === e.currentTarget) closeCelebrate(); });
 
+        // Escape closes the top-most layer only.
         document.addEventListener("keydown", (e) => {
-            if (e.key === "Escape") { closeCart(); hideUserModal(); closeLegal(); closeCelebrate(); }
+            if (e.key !== "Escape") return;
+            const open = (sel) => !$(sel)?.classList.contains("hidden");
+            if (open("#legal-modal")) closeLegal();
+            else if (open("#user-modal")) hideUserModal();
+            else if (open("#celebrate")) closeCelebrate();
+            else closeCart();
         });
 
         // Status from Tebex return

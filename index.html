@@ -11,7 +11,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20261026-2" />
+    <link rel="stylesheet" href="styles.css?v=20261026-3" />
+    <script defer src="https://js.tebex.io/v/1.js"></script>
 </head>
 <body class="store-page">
     <div class="page-bg" aria-hidden="true"></div>
@@ -72,6 +73,59 @@
                 </button>
             </div>
         </nav>
+
+        <!-- Checkout view (replaces the store bar + main while open) -->
+        <section class="checkout-screen hidden" id="checkout-screen" aria-label="Checkout">
+            <div class="checkout-card">
+                <header class="co-head">
+                    <h2>Checkout</h2>
+                    <strong class="co-total" id="checkout-total">$0.00</strong>
+                </header>
+
+                <div class="checkout-table" id="checkout-table">
+                    <div class="checkout-table-head" aria-hidden="true">
+                        <span>Package</span>
+                        <span>Price</span>
+                        <span>Amount</span>
+                        <span></span>
+                    </div>
+                    <div class="checkout-rows" id="checkout-rows"></div>
+                </div>
+
+                <div class="checkout-empty hidden" id="checkout-empty">
+                    <div class="checkout-empty-icon" aria-hidden="true">🛒</div>
+                    <p>Your cart is empty.</p>
+                    <button type="button" class="btn-yellow" data-close-cart>Browse store</button>
+                </div>
+
+                <div class="co-complete hidden" id="checkout-cta">
+                    <h3>Complete purchase</h3>
+                    <div class="co-checks" id="co-checks">
+                        <label class="co-check">
+                            <input type="checkbox" data-agree />
+                            <span>I agree with the <button type="button" class="co-link" data-legal="terms">Terms of Service</button> of this purchase.</span>
+                        </label>
+                        <label class="co-check">
+                            <input type="checkbox" data-agree />
+                            <span>I confirm that I am 18 or older, or have permission from a parent or guardian to make this purchase.</span>
+                        </label>
+                        <label class="co-check">
+                            <input type="checkbox" data-agree="account" />
+                            <span>I verify that the Minecraft account with the name <strong id="co-verify-name">—</strong>, which I am using to make this purchase, belongs to me.</span>
+                        </label>
+                    </div>
+                    <div class="co-actions">
+                        <button type="button" class="co-back" data-close-cart>
+                            <span aria-hidden="true">←</span> Continue Shopping
+                        </button>
+                        <button type="button" class="co-go not-ready" id="checkout-btn">
+                            <span id="checkout-label">Checkout</span> <span aria-hidden="true">→</span>
+                        </button>
+                    </div>
+                    <p class="checkout-disclaimer">Payment opens in a secure Tebex window. Tebex handles billing, fulfilment support and refunds.</p>
+                </div>
+            </div>
+        </section>
 
         <main class="store-main">
             <!-- Category cards -->
@@ -225,76 +279,6 @@
         </div>
     </footer>
 
-    <!-- Full-screen checkout (z-index 200) -->
-    <div class="checkout-screen hidden" id="checkout-screen">
-        <button class="checkout-close" type="button" data-close-cart aria-label="Back to store">✕</button>
-
-        <div class="checkout-brand">
-            <img class="checkout-brand-logo" src="assets/logo-hero.webp" alt="TaxSMP"
-                 onerror="this.onerror=null; this.src='assets/logo-hero.png'" />
-            <button class="tile-ip" type="button" data-ip="taxsmp.net">
-                <span class="tile-ip-icon" aria-hidden="true">⧉</span>
-                <span class="tile-ip-label">TAXSMP.NET</span>
-            </button>
-        </div>
-
-        <section class="checkout-card" aria-label="Checkout">
-            <header class="checkout-head">
-                <div class="checkout-head-title">
-                    <img class="checkout-head-icon" src="assets/logo-island.png" alt=""
-                         onerror="this.classList.add('img-missing')" />
-                    <div>
-                        <h2>Checkout</h2>
-                        <p class="checkout-total-line">Total: <span id="checkout-total">$0.00</span></p>
-                    </div>
-                </div>
-                <button type="button" class="currency-select" id="currency-select" aria-label="Currency">
-                    <span class="currency-globe" aria-hidden="true">🌐</span>
-                    <span id="currency-label">USD</span>
-                    <span class="currency-caret" aria-hidden="true">▾</span>
-                </button>
-            </header>
-
-            <div class="checkout-divider"></div>
-
-            <div class="checkout-account" id="checkout-account">
-                <img class="account-head" id="account-head" alt="" />
-                <div class="account-text">
-                    <span class="account-label">You are currently signed in as</span>
-                    <strong class="account-name" id="account-name">—</strong>
-                </div>
-                <button type="button" class="switch-account" id="switch-account">
-                    <span class="switch-account-q">Wrong account?</span>
-                    <strong>Switch Accounts</strong>
-                </button>
-            </div>
-
-            <div class="checkout-divider"></div>
-
-            <div class="checkout-table" id="checkout-table">
-                <div class="checkout-table-head">
-                    <span>Name</span>
-                    <span>Price</span>
-                    <span>Quantity</span>
-                </div>
-                <div class="checkout-rows" id="checkout-rows"></div>
-            </div>
-
-            <div class="checkout-empty hidden" id="checkout-empty">
-                <div class="checkout-empty-icon" aria-hidden="true">🛒</div>
-                <p>Your cart is empty.</p>
-                <button type="button" class="btn-ghost" data-close-cart>Browse store</button>
-            </div>
-
-            <div class="checkout-cta hidden" id="checkout-cta">
-                <button type="button" class="btn-proceed" id="checkout-btn">
-                    <span id="checkout-label">Proceed to checkout »</span>
-                </button>
-                <p class="checkout-disclaimer">You'll be redirected to Tebex to complete payment securely.</p>
-            </div>
-        </section>
-    </div>
-
     <!-- Username modal (z-index 300 — must be ABOVE cart drawer) -->
     <div class="modal-backdrop hidden" id="user-modal">
         <div class="user-gate">
@@ -351,6 +335,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js?v=20261026-2"></script>
+    <script src="app.js?v=20261026-3"></script>
 </body>
 </html>
