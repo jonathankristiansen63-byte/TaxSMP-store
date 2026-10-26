@@ -1,8 +1,15 @@
-Drop your two logo images here:
+Store images — replace any of these with a file of the same name:
 
-  1. logo-island.png  — the big detailed TAX SMP logo with the grass island, chest,
-                        sword, pickaxe and ore (used on the Logo tile and store header).
+  1. logo-hero.webp / logo-hero.png — the pixel TAX SMP text logo shown in the
+                        header, checkout, login box and footer (transparent
+                        background). Keep both formats in sync.
 
-  2. logo-text.png    — the simpler TAX SMP text-only logo (used on the Store tile).
+  2. background.jpg   — the full-page backdrop behind everything. The current one
+                        is a generated blocky placeholder; a wide in-game
+                        screenshot of the server (about 1920x1200) looks best.
 
-PNGs with transparent backgrounds work best. Any size — they will be scaled.
+  3. logo-island.png  — the TAX SMP island emblem (checkout header icon).
+
+  4. favicon.png      — browser tab icon.
+
+PNGs with transparent backgrounds work best for logos. Any size — they will be scaled.

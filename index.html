@@ -5,89 +5,132 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TaxSMP | Store</title>
     <meta name="description" content="Official TaxSMP store. Buy ranks, crate keys and exclusive perks." />
+    <meta name="theme-color" content="#0f1830" />
     <link rel="icon" type="image/png" href="assets/favicon.png" />
     <link rel="apple-touch-icon" href="assets/favicon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="styles.css?v=20260722-8" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css?v=20261026-1" />
 </head>
 <body class="store-page">
+    <div class="page-bg" aria-hidden="true"></div>
     <canvas id="particles" aria-hidden="true"></canvas>
 
-    <header class="store-top">
-        <a class="store-logo" href="index.html">
-            <img class="logo-text-header logo-island-header" src="assets/logo-island.png" alt="TaxSMP"
-                 onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'logo-text-fallback', textContent:'TAXSMP'}))" />
-            <button class="tile-ip" type="button" data-ip="taxsmp.net">
-                <span class="tile-ip-icon" aria-hidden="true">⧉</span>
-                <span class="tile-ip-label">TAXSMP.NET</span>
+    <div class="page-wrap" id="top">
+        <!-- Header: Play Now · logo · Discord -->
+        <header class="site-header">
+            <button class="head-cta head-play" type="button" data-ip="taxsmp.net" aria-label="Copy server IP taxsmp.net">
+                <span class="head-cta-text">
+                    <strong>Play Now</strong>
+                    <small>TAXSMP.NET</small>
+                </span>
+                <span class="head-cta-icon icon-play" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="26" height="26"><path d="M8 5.5v13a1 1 0 0 0 1.53.85l10.2-6.5a1 1 0 0 0 0-1.7L9.53 4.65A1 1 0 0 0 8 5.5Z" fill="currentColor"/></svg>
+                    <span class="head-bubble hidden" id="players-bubble"></span>
+                </span>
             </button>
-        </a>
-        <button class="cart-btn" type="button" id="cart-btn" aria-label="Open cart">
-            <svg class="cart-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="9" cy="21" r="1"></circle>
-                <circle cx="20" cy="21" r="1"></circle>
-                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
-            </svg>
-            <span class="cart-count" id="cart-count">0</span>
-        </button>
-    </header>
 
-    <main class="store-main">
-        <div class="store-container">
-            <!-- Username greeting (hidden until set) -->
-            <div class="user-banner hidden" id="user-banner">
-                <span>Shopping as <strong id="user-name"></strong></span>
-                <button type="button" id="change-user" class="link-btn">Change</button>
+            <a class="head-logo" href="#top" aria-label="TaxSMP store home">
+                <img src="assets/logo-hero.webp" alt="TaxSMP" width="900" height="674"
+                     onerror="this.onerror=null; this.src='assets/logo-hero.png'" />
+            </a>
+
+            <a class="head-cta head-discord" href="https://discord.gg/3eSTqYaAuR" target="_blank" rel="noopener">
+                <span class="head-cta-icon icon-discord" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="28" height="28"><path fill="currentColor" d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.45.87-.61 1.25a18.27 18.27 0 0 0-5.49 0 12.64 12.64 0 0 0-.62-1.25.08.08 0 0 0-.08-.04 19.74 19.74 0 0 0-4.88 1.52.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.23-1.99a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13l.37-.29a.07.07 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.06 0a.07.07 0 0 1 .08.01l.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.65-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.36 1.22 1.99a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .03-.06c.5-5.18-.84-9.67-3.55-13.66a.06.06 0 0 0-.03-.03ZM8.02 15.33c-1.18 0-2.16-1.09-2.16-2.42s.96-2.42 2.16-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.96 2.42-2.16 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.18 1.1 2.16 2.42 0 1.33-.95 2.42-2.16 2.42Z"/></svg>
+                    <span class="head-bubble hidden" id="discord-bubble"></span>
+                </span>
+                <span class="head-cta-text">
+                    <strong>Discord</strong>
+                    <small>Join Now</small>
+                </span>
+            </a>
+        </header>
+
+        <!-- Sticky store bar: categories · account · cart -->
+        <nav class="store-bar" id="store-bar" aria-label="Store">
+            <div class="bar-links" id="bar-links">
+                <a class="bar-link active" href="#top" data-spy="top">Home</a>
+                <a class="bar-link" href="#ranks-section" data-spy="ranks-section">Ranks</a>
+                <a class="bar-link" href="#crates-section" data-spy="crates-section">Crates</a>
+                <a class="bar-link" href="#gems-section" data-spy="gems-section" id="gems-link">Gems</a>
             </div>
+            <div class="bar-actions">
+                <button type="button" class="bar-user" id="bar-user" aria-label="Your Minecraft account">
+                    <img class="bar-user-head" id="bar-user-head" src="assets/favicon.png" alt="" />
+                    <span class="bar-user-name" id="bar-user-name">Log in</span>
+                </button>
+                <button class="cart-btn" type="button" id="cart-btn" aria-label="Open cart">
+                    <svg class="cart-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="9" cy="21" r="1"></circle>
+                        <circle cx="20" cy="21" r="1"></circle>
+                        <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+                    </svg>
+                    <span class="cart-total" id="cart-total">$0.00</span>
+                    <span class="cart-count" id="cart-count">0</span>
+                </button>
+            </div>
+        </nav>
 
-            <!-- Category hub (big gradient cards) -->
+        <main class="store-main">
+            <!-- Sale bar (only shown while Tebex reports a discount) -->
+            <section class="sale-bar hidden" id="sale-bar" aria-label="Sale">
+                <span class="sale-pill" id="sale-pill">SALE</span>
+                <h2 class="sale-title" id="sale-title">SALE LIVE</h2>
+                <div class="sale-timer hidden" id="sale-timer" aria-label="Time left">
+                    <span class="sale-unit"><b data-t="d">00</b><small>Days</small></span>
+                    <span class="sale-unit"><b data-t="h">00</b><small>Hrs</small></span>
+                    <span class="sale-unit"><b data-t="m">00</b><small>Min</small></span>
+                    <span class="sale-unit"><b data-t="s">00</b><small>Sec</small></span>
+                </div>
+            </section>
+
+            <!-- Category cards -->
             <section class="category-hub" id="category-hub">
                 <a class="cat-card cat-ranks" href="#ranks-section">
                     <div class="cat-text">
                         <h3>Ranks</h3>
-                        <span>Click to view</span>
+                        <span class="cat-meta" data-cat-meta="ranks">Click to view</span>
                     </div>
                     <div class="cat-art" aria-hidden="true"></div>
                 </a>
                 <a class="cat-card cat-crates" href="#crates-section">
                     <div class="cat-text">
                         <h3>Crates</h3>
-                        <span>Click to view</span>
+                        <span class="cat-meta" data-cat-meta="keys">Click to view</span>
                     </div>
                     <div class="cat-art" aria-hidden="true"></div>
                 </a>
                 <a class="cat-card cat-gems" href="#gems-section" id="gems-card">
                     <div class="cat-text">
                         <h3>Gems</h3>
-                        <span>Click to view</span>
+                        <span class="cat-meta" data-cat-meta="gems">Click to view</span>
                     </div>
                     <div class="cat-art" aria-hidden="true"></div>
                 </a>
             </section>
 
-            <!-- Ranks section -->
-            <section class="ranks-section" id="ranks-section">
+            <!-- Ranks -->
+            <section class="store-section ranks-section" id="ranks-section">
                 <div class="section-header">
                     <h2>Ranks</h2>
                     <p>Pick a rank to unlock exclusive perks and support the server.</p>
                 </div>
-                <nav class="rank-tabs" id="rank-tabs"></nav>
-                <div class="rank-featured" id="rank-featured"></div>
+                <div class="rank-list" id="rank-list"></div>
             </section>
 
-            <!-- Crates section -->
-            <section class="crates-section" id="crates-section">
+            <!-- Crate keys -->
+            <section class="store-section crates-section" id="crates-section">
                 <div class="section-header">
                     <h2>Crate Keys</h2>
-                    <p>Unlock rewards with keys. Choose a quantity and add to cart.</p>
+                    <p>Unlock rewards with keys. Slide to pick a quantity and add to cart.</p>
                 </div>
                 <div class="key-grid" id="key-grid"></div>
             </section>
 
-            <!-- Gems section -->
-            <section class="crates-section" id="gems-section">
+            <!-- Gems -->
+            <section class="store-section crates-section" id="gems-section">
                 <div class="section-header">
                     <h2>Gems</h2>
                     <p>Premium currency — spend it in-game at the <strong>/shop</strong> gem shop.</p>
@@ -99,14 +142,79 @@
                 <div class="spinner" aria-hidden="true"></div>
                 <p>Loading store…</p>
             </div>
-        </div>
-    </main>
+
+            <!-- Community panel: account · players online · IP · Discord -->
+            <section class="community-panel" aria-label="Community">
+                <div class="cp-side">
+                    <h4 class="cp-title">
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3 7l4.5 4L12 4l4.5 7L21 7l-2 12H5L3 7Z"/></svg>
+                        Your Account
+                    </h4>
+                    <img class="cp-head" id="cp-head" src="assets/favicon.png" alt="" />
+                    <strong class="cp-name" id="cp-name">Not logged in</strong>
+                    <small class="cp-sub" id="cp-sub">Log in with your Minecraft name to start shopping.</small>
+                    <button type="button" class="btn-yellow" id="cp-login">Log in</button>
+                </div>
+                <div class="cp-main">
+                    <div class="cp-block">
+                        <h4 class="cp-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.6"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg>
+                            Players Online
+                        </h4>
+                        <div class="cp-goal">
+                            <div class="cp-bar"><span id="cp-bar-fill"></span></div>
+                            <span class="cp-goal-num" id="cp-goal-num">Checking…</span>
+                            <strong class="cp-goal-pct" id="cp-goal-pct"></strong>
+                        </div>
+                    </div>
+                    <div class="cp-block">
+                        <h4 class="cp-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="4" width="18" height="7" rx="2" fill="currentColor"/><rect x="3" y="13" width="18" height="7" rx="2" fill="currentColor" opacity=".6"/></svg>
+                            Server IP
+                        </h4>
+                        <div class="cp-input-row">
+                            <input type="text" value="taxsmp.net" readonly aria-label="Server IP" />
+                            <button type="button" class="btn-yellow" data-ip="taxsmp.net">Copy IP</button>
+                        </div>
+                    </div>
+                    <div class="cp-block">
+                        <h4 class="cp-title">
+                            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/></svg>
+                            Need Help?
+                        </h4>
+                        <div class="cp-input-row cp-help">
+                            <p>Missing an item or stuck at checkout? Our staff are on Discord.</p>
+                            <a class="btn-yellow" href="https://discord.gg/3eSTqYaAuR" target="_blank" rel="noopener">Open a ticket</a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Information / Privacy -->
+            <section class="info-cards">
+                <article class="info-card info-blue">
+                    <svg class="info-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M20 8h24l12 14-24 34L8 22 20 8Zm-12 14h48M24 8l-4 14 12 34 12-34-4-14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg>
+                    <h3>Information</h3>
+                    <span class="info-line" aria-hidden="true"></span>
+                    <p>We work hard to keep TaxSMP online and to keep adding new features. Every purchase directly supports the server and helps us keep it running for the months and years ahead.</p>
+                    <svg class="info-wave" viewBox="0 0 600 80" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40c90-30 170-30 260 0s180 30 340-6V80H0Z"/></svg>
+                </article>
+                <article class="info-card info-green">
+                    <svg class="info-mark" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 6 54 14v16c0 14-9 24-22 28C19 54 10 44 10 30V14L32 6Zm-9 26 7 7 12-14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/></svg>
+                    <h3>Privacy</h3>
+                    <span class="info-line" aria-hidden="true"></span>
+                    <p>Checkout is handled by Tebex, our licensed payment partner and one of the biggest gaming monetisation providers. Your payment details are processed only by Tebex, never by us. Questions? Reach out on Discord.</p>
+                    <svg class="info-wave" viewBox="0 0 600 80" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40c90-30 170-30 260 0s180 30 340-6V80H0Z"/></svg>
+                </article>
+            </section>
+        </main>
+    </div>
 
     <footer class="store-footer">
         <div class="footer-inner">
             <div class="footer-brand">
-                <img class="footer-logo" src="assets/logo-island.png" alt="TaxSMP" width="56" height="56"
-                     onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'logo-text-fallback', textContent:'TAXSMP'}))" />
+                <img class="footer-logo" src="assets/logo-hero.webp" alt="TaxSMP" width="120" height="90"
+                     onerror="this.onerror=null; this.src='assets/logo-hero.png'" />
                 <p class="footer-tagline">The official TaxSMP store — ranks, crate keys and gems, delivered instantly in-game.</p>
                 <button class="tile-ip footer-ip" type="button" data-ip="taxsmp.net">
                     <span class="tile-ip-icon" aria-hidden="true">⧉</span>
@@ -134,8 +242,8 @@
         <button class="checkout-close" type="button" data-close-cart aria-label="Back to store">✕</button>
 
         <div class="checkout-brand">
-            <img class="checkout-brand-logo" src="assets/logo-island.png" alt="TaxSMP"
-                 onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'logo-text-fallback', textContent:'TAXSMP'}))" />
+            <img class="checkout-brand-logo" src="assets/logo-hero.webp" alt="TaxSMP"
+                 onerror="this.onerror=null; this.src='assets/logo-hero.png'" />
             <button class="tile-ip" type="button" data-ip="taxsmp.net">
                 <span class="tile-ip-icon" aria-hidden="true">⧉</span>
                 <span class="tile-ip-label">TAXSMP.NET</span>
@@ -203,8 +311,8 @@
     <div class="modal-backdrop hidden" id="user-modal">
         <div class="user-gate">
             <div class="user-gate-brand">
-                <img class="user-gate-logo" src="assets/logo-island.png" alt="TaxSMP"
-                     onerror="this.classList.add('img-missing'); this.replaceWith(Object.assign(document.createElement('span'), {className:'user-gate-logo-fallback', textContent:'TAXSMP'}))" />
+                <img class="user-gate-logo" src="assets/logo-hero.webp" alt="TaxSMP"
+                     onerror="this.onerror=null; this.src='assets/logo-hero.png'" />
                 <button class="tile-ip user-gate-ip" type="button" data-ip="taxsmp.net">
                     <span class="tile-ip-icon" aria-hidden="true">⧉</span>
                     <span class="tile-ip-label">TAXSMP.NET</span>
@@ -255,6 +363,6 @@
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <script src="app.js?v=20260722-8"></script>
+    <script src="app.js?v=20261026-1"></script>
 </body>
 </html>

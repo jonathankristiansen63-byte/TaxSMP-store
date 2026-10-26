@@ -6,13 +6,37 @@
     const BASKET_API = `https://headless.tebex.io/api/baskets`;
     const WEBSTORE = "https://taxsmp-store.tebex.io";
     const DISCORD_INVITE = "https://discord.gg/3eSTqYaAuR";
+    const SERVER_IP = "taxsmp.net";
+
+    // Sale banner text. The bar itself only appears while Tebex reports a
+    // discount on at least one package; set `title` to name the sale (e.g.
+    // "Halloween Sale") and `endsAt` to an ISO date/time to show a countdown.
+    const SALE_BANNER = { title: "", endsAt: "" };
 
     const $ = (sel, root = document) => root.querySelector(sel);
     const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+    const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
     const fmt = (n, ccy = "USD") => {
         try { return new Intl.NumberFormat(undefined, { style: "currency", currency: ccy }).format(n); }
         catch { return `$${Number(n).toFixed(2)}`; }
+    };
+    const compact = (n) => {
+        try { return new Intl.NumberFormat(undefined, { notation: "compact" }).format(n); }
+        catch { return String(n); }
+    };
+
+    // Small JSON GET with a timeout, for the optional status widgets.
+    const fetchJSON = async (url, ms = 8000) => {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), ms);
+        try {
+            const res = await fetch(url, { headers: { Accept: "application/json" }, signal: ctrl.signal });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        } finally { clearTimeout(timer); }
     };
 
     // Sale info comes straight from Tebex (base_price vs total_price). A sale
@@ -33,11 +57,12 @@
     // The price to charge / add to cart (already discounted by Tebex).
     const effectivePrice = (pkg) => saleInfo(pkg).now;
     // Price markup: struck-through original + discounted price when on sale.
-    const priceHTML = (pkg) => {
+    // `qty` scales both so cards can show the total for the chosen quantity.
+    const priceHTML = (pkg, qty = 1) => {
         const s = saleInfo(pkg);
         return s.onSale
-            ? `<span class="price-was">${fmt(s.was, s.currency)}</span><span class="price-now">${fmt(s.now, s.currency)}</span>`
-            : fmt(s.now, s.currency);
+            ? `<span class="price-was">${fmt(s.was * qty, s.currency)}</span><span class="price-now">${fmt(s.now * qty, s.currency)}</span>`
+            : fmt(s.now * qty, s.currency);
     };
     const dealBadge = (pkg) => {
         const s = saleInfo(pkg);
@@ -46,7 +71,8 @@
 
     const sanitize = (html) => {
         const div = document.createElement("div");
-        div.innerHTML = html || "";
+        // Block-level tags count as line breaks so "<p>a</p><p>b</p>" gives two perks.
+        div.innerHTML = (html || "").replace(/<br\s*\/?>|<\/(p|div|li|h[1-6])>/gi, "$&\n");
         const text = div.textContent || "";
         return text.split(/\n+/).map(s => s.trim()).filter(Boolean);
     };
@@ -190,13 +216,14 @@
         toast._t = setTimeout(() => t.classList.remove("show"), 2400);
     };
 
-    /* ========== Particles ========== */
+    /* ========== Particles (bubbles rising over the backdrop) ========== */
     const initParticles = () => {
         const canvas = $("#particles");
         if (!canvas) return;
+        if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
         const ctx = canvas.getContext("2d");
         let particles;
-        const COUNT = Math.min(60, Math.floor(window.innerWidth / 22));
+        const COUNT = Math.min(46, Math.floor(window.innerWidth / 28));
 
         const resize = () => {
             const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -211,27 +238,26 @@
             particles = Array.from({ length: COUNT }, () => ({
                 x: Math.random() * window.innerWidth,
                 y: Math.random() * window.innerHeight,
-                r: Math.random() * 1.4 + 0.3,
-                vx: (Math.random() - 0.5) * 0.22,
-                vy: (Math.random() - 0.5) * 0.22,
-                a: Math.random() * 0.5 + 0.2,
-                hue: Math.random() > 0.5 ? 45 : 38
+                r: Math.random() * 2.6 + 1,
+                vy: -(Math.random() * 0.35 + 0.15),
+                wobble: Math.random() * Math.PI * 2,
+                a: Math.random() * 0.4 + 0.25
             }));
         };
         const tick = () => {
             ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
             for (const p of particles) {
-                p.x += p.vx; p.y += p.vy;
-                if (p.x < 0) p.x = window.innerWidth;
-                if (p.x > window.innerWidth) p.x = 0;
-                if (p.y < 0) p.y = window.innerHeight;
-                if (p.y > window.innerHeight) p.y = 0;
+                p.wobble += 0.02;
+                p.x += Math.sin(p.wobble) * 0.25;
+                p.y += p.vy;
+                if (p.y < -10) { p.y = window.innerHeight + 10; p.x = Math.random() * window.innerWidth; }
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                ctx.fillStyle = `hsla(${p.hue}, 100%, 70%, ${p.a})`;
-                ctx.shadowColor = `hsla(${p.hue}, 100%, 70%, 0.6)`;
-                ctx.shadowBlur = 8;
+                ctx.fillStyle = `rgba(255, 255, 255, ${p.a * 0.25})`;
+                ctx.strokeStyle = `rgba(255, 255, 255, ${p.a})`;
+                ctx.lineWidth = 1;
                 ctx.fill();
+                ctx.stroke();
             }
             requestAnimationFrame(tick);
         };
@@ -241,7 +267,7 @@
 
     /* ========== Copy IP ========== */
     const initCopyIp = () => {
-        $$(".tile-ip").forEach(btn => {
+        $$("[data-ip]").forEach(btn => {
             btn.addEventListener("click", async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -266,15 +292,25 @@
     };
 
     /* ========== Store data ========== */
-    const TIER_META = {
-        "+ Rank":    { tier: 1, icon: "✦", sub: "Starter perks for active players" },
-        "++ Rank":   { tier: 2, icon: "✧", sub: "Step up with extra utilities" },
-        "+++ Rank":  { tier: 3, icon: "✪", sub: "Power-user features and conveniences" },
-        "++++ Rank": { tier: 4, icon: "✫", sub: "The full TaxSMP experience" }
-    };
+    // Card colours. Ranks go cheapest → priciest through RANK_TINTS; keys and
+    // gems take a rarity colour from their name, else the next palette colour.
+    const RANK_TINTS = ["purple", "gold", "blue", "red", "green", "orange"];
+    const KEY_TINTS = ["slate", "blue", "purple", "gold", "orange", "green", "red", "teal"];
+    const GEM_TINTS = ["teal", "blue", "purple", "gold", "red", "orange"];
+    const NAME_TINTS = [
+        [/legend|mythic|ultimate|god/i, "gold"],
+        [/epic/i, "purple"],
+        [/rare/i, "blue"],
+        [/spawn/i, "green"],
+        [/halloween|pumpkin|fire|lava/i, "orange"],
+        [/common|basic|vote|starter/i, "slate"]
+    ];
+    const tintFor = (pkg, i, palette) =>
+        (NAME_TINTS.find(([re]) => re.test(pkg.name || "")) || [])[1] || palette[i % palette.length];
+
+    const QTY_STEPS = [1, 5, 10, 20];
 
     let storeData = { ranks: [], keys: [], gems: [] };
-    let activeRankIdx = 0;
     const qtySelection = new Map(); // package_id -> selected qty
     let pendingAction = null;       // function to run once username is set
 
@@ -350,6 +386,7 @@
             renderKeys();
             renderGems();
             setCategoryArt();
+            renderSaleBar();
             $("#loading")?.classList.add("hidden");
         } catch (err) {
             console.error(err);
@@ -357,63 +394,66 @@
         }
     };
 
+    const periodLabel = (pkg) => pkg.expiry_period
+        ? `per ${pkg.expiry_period.count > 1 ? pkg.expiry_period.count + " " : ""}${pkg.expiry_period.unit}${pkg.expiry_period.count > 1 ? "s" : ""}`
+        : "one-time";
+
+    const CHEVRON = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>`;
+
+    // One coloured bar per rank (OceanMC-style). The chevron, or a click
+    // anywhere on the bar, drops down the full perk list.
     const renderRanks = () => {
-        const tabsEl = $("#rank-tabs");
-        const featuredEl = $("#rank-featured");
-        if (!tabsEl || !featuredEl) return;
+        const list = $("#rank-list");
+        if (!list) return;
 
-        tabsEl.innerHTML = storeData.ranks.map((r, i) => `
-            <button type="button" class="rank-tab ${i === activeRankIdx ? "active" : ""}" data-idx="${i}">
-                ${r.name}
-            </button>
-        `).join("");
-
-        tabsEl.querySelectorAll(".rank-tab").forEach(btn => {
-            btn.addEventListener("click", () => {
-                activeRankIdx = parseInt(btn.dataset.idx, 10);
-                renderRanks();
-            });
-        });
-
-        const rank = storeData.ranks[activeRankIdx];
-        if (!rank) { featuredEl.innerHTML = ""; return; }
-        const meta = TIER_META[rank.name] || { tier: 1, icon: "✦", sub: "" };
-        const perks = sanitize(rank.description);
-        const subPeriod = rank.expiry_period
-            ? `per ${rank.expiry_period.count > 1 ? rank.expiry_period.count + " " : ""}${rank.expiry_period.unit}${rank.expiry_period.count > 1 ? "s" : ""}`
-            : "one-time";
-
-        featuredEl.className = `rank-featured tier-${meta.tier}`;
-        featuredEl.innerHTML = `
-            <div class="rank-info">
-                <h2 class="rank-name">
-                    <span class="rank-icon">${rank.image ? `<img src="${rank.image}" alt="" />` : meta.icon}</span>
-                    ${rank.name}
-                </h2>
-                <p class="rank-sub">${meta.sub}</p>
-                ${dealBadge(rank)}
-                <ul class="rank-perks">
-                    ${perks.map(p => `<li>${p}</li>`).join("")}
-                </ul>
-                <div class="rank-buy-row">
-                    <div>
-                        <div class="rank-price">${priceHTML(rank)}</div>
-                        <span class="rank-price-sub">${subPeriod}</span>
+        list.innerHTML = storeData.ranks.map((rank, i) => {
+            const perks = sanitize(rank.description);
+            const preview = perks.slice(0, 3).map(esc).join(" • ")
+                + (perks.length > 3 ? ` • +${perks.length - 3} more` : "");
+            return `
+                <article class="rank-row tint-${RANK_TINTS[i % RANK_TINTS.length]}" data-rank="${rank.id}">
+                    <div class="rank-row-main">
+                        <span class="rank-row-icon">${rank.image ? `<img src="${esc(rank.image)}" alt="" loading="lazy" />` : "👑"}</span>
+                        <div class="rank-row-title">
+                            <h3>${esc(rank.name)} ${dealBadge(rank)}</h3>
+                            <span>${periodLabel(rank)}</span>
+                        </div>
+                        <p class="rank-row-preview">${preview}</p>
+                        <div class="rank-row-price">${priceHTML(rank)}</div>
+                        <div class="rank-row-actions">
+                            <button type="button" class="btn-cart" data-buy>Add to cart</button>
+                            ${perks.length ? `<button type="button" class="btn-square" data-perks aria-expanded="false" aria-label="Show ${esc(rank.name)} perks">${CHEVRON}</button>` : ""}
+                        </div>
                     </div>
-                    <button class="btn-buy-rank" data-buy-rank="${rank.id}">Add to Cart</button>
-                </div>
-            </div>
-            <div class="rank-art">
-                ${rank.image ? `<img src="${rank.image}" alt="${rank.name}" />` : `<div style="font-size:120px">${meta.icon}</div>`}
-            </div>
-        `;
+                    ${perks.length ? `
+                        <div class="rank-row-perks" aria-hidden="true">
+                            <div><ul>${perks.map(p => `<li>${esc(p)}</li>`).join("")}</ul></div>
+                        </div>` : ""}
+                </article>
+            `;
+        }).join("");
 
-        featuredEl.querySelector("[data-buy-rank]").addEventListener("click", () => {
-            requestAddToCart(rank, 1);
+        list.querySelectorAll(".rank-row").forEach(row => {
+            const rank = storeData.ranks.find(r => String(r.id) === row.dataset.rank);
+            row.querySelector("[data-buy]").addEventListener("click", (e) => {
+                e.stopPropagation();
+                requestAddToCart(rank, 1);
+            });
+            const toggle = row.querySelector("[data-perks]");
+            if (!toggle) return;
+            const flip = () => {
+                const open = row.classList.toggle("open");
+                toggle.setAttribute("aria-expanded", String(open));
+                row.querySelector(".rank-row-perks")?.setAttribute("aria-hidden", String(!open));
+            };
+            toggle.addEventListener("click", (e) => { e.stopPropagation(); flip(); });
+            row.querySelector(".rank-row-main").addEventListener("click", flip);
+            row.querySelector(".rank-row-main").style.cursor = "pointer";
         });
     };
 
-    // Each category card shows a random image from its own packages.
+    // Each category card shows a random image from its own packages plus a
+    // live "4 ranks · from $4.99" pill.
     const setCategoryArt = () => {
         const pick = (arr) => {
             const withImg = (arr || []).filter(p => p.image);
@@ -421,73 +461,204 @@
         };
         const apply = (sel, img) => {
             const el = $(sel);
-            if (el && img) el.innerHTML = `<img src="${img}" alt="" />`;
+            if (el && img) el.innerHTML = `<img src="${esc(img)}" alt="" />`;
         };
         apply(".cat-ranks .cat-art", pick(storeData.ranks));
         apply(".cat-crates .cat-art", pick(storeData.keys));
         apply(".cat-gems .cat-art", pick(storeData.gems));
+
+        const meta = (key, noun) => {
+            const el = $(`[data-cat-meta="${key}"]`);
+            const arr = storeData[key];
+            if (!el || !arr.length) return;
+            const from = Math.min(...arr.map(effectivePrice));
+            el.textContent = `${arr.length} ${noun}${arr.length === 1 ? "" : "s"} · from ${fmt(from, arr[0].currency || "USD")}`;
+        };
+        meta("ranks", "rank");
+        meta("keys", "key");
+        meta("gems", "pack");
     };
 
-    const renderKeys = () => buildPackageGrid($("#key-grid"), storeData.keys);
+    const renderKeys = () => buildPackageGrid($("#key-grid"), storeData.keys, KEY_TINTS);
 
     const renderGems = () => {
         const grid = $("#gem-grid");
         if (!grid) return;
-        const section = $("#gems-section");
-        const card = $("#gems-card");
         if (!storeData.gems.length) {
-            section?.classList.add("hidden");
-            card?.classList.add("hidden");
+            $("#gems-section")?.classList.add("hidden");
+            $("#gems-card")?.classList.add("hidden");
+            $("#gems-link")?.classList.add("hidden");
             return;
         }
-        buildPackageGrid(grid, storeData.gems);
+        buildPackageGrid(grid, storeData.gems, GEM_TINTS, { bestValue: true });
     };
 
-    const buildPackageGrid = (grid, packages) => {
+    // "Best value" goes to the pack with the lowest price per unit, read from
+    // the number in its name ("1200 Gems"). Needs at least two comparable packs.
+    const bestValueId = (packages) => {
+        const rated = packages.map(p => {
+            const m = /(\d[\d,]*(?:\.\d+)?)\s*(k)?\b/i.exec(p.name || "");
+            const amount = m ? parseFloat(m[1].replace(/,/g, "")) * (m[2] ? 1000 : 1) : 0;
+            return amount > 0 ? { id: p.id, per: effectivePrice(p) / amount } : null;
+        }).filter(Boolean);
+        if (rated.length < 2) return null;
+        rated.sort((a, b) => a.per - b.per);
+        return rated[0].per < rated[1].per ? rated[0].id : null;
+    };
+
+    const buildPackageGrid = (grid, packages, palette, { bestValue = false } = {}) => {
         if (!grid) return;
-        grid.innerHTML = packages.map(k => {
+        const bestId = bestValue ? bestValueId(packages) : null;
+        grid.innerHTML = packages.map((k, i) => {
             const qty = qtySelection.get(k.id) || 1;
+            const step = Math.max(0, QTY_STEPS.indexOf(qty));
+            const fixedQty = k.type === "subscription";
             return `
-                <article class="key-card" data-key="${k.id}">
+                <article class="key-card tint-${tintFor(k, i, palette)}" data-key="${k.id}">
                     ${dealBadge(k)}
+                    ${k.id === bestId ? `<span class="value-badge">★ Best value</span>` : ""}
                     <div class="key-image-wrap">
-                        ${k.image ? `<img src="${k.image}" alt="${k.name}" />` : ""}
+                        ${k.image ? `<img src="${esc(k.image)}" alt="${esc(k.name)}" loading="lazy" />` : ""}
                     </div>
-                    <h3 class="key-name">${k.name}</h3>
-                    <div class="key-price">${priceHTML(k)}</div>
-                    <div class="qty-pills" role="radiogroup">
-                        ${[1, 5, 10, 20].map(q => `
-                            <button type="button" class="qty-pill ${q === qty ? "active" : ""}" data-qty="${q}">${q}x</button>
-                        `).join("")}
-                    </div>
-                    <button type="button" class="btn-add" data-add="${k.id}">Add to Cart</button>
+                    <h3 class="key-name">${esc(k.name)}</h3>
+                    ${fixedQty ? "" : `
+                        <div class="qty-range">
+                            <input type="range" class="qty-slider" min="0" max="${QTY_STEPS.length - 1}" step="1" value="${step}"
+                                   aria-label="Quantity" aria-valuetext="${qty}x"
+                                   style="--fill:${(step / (QTY_STEPS.length - 1)) * 100}%" />
+                            <div class="qty-ticks" aria-hidden="true">
+                                ${QTY_STEPS.map((q, s) => `<span class="${s === step ? "on" : ""}" data-step="${s}">${q}x</span>`).join("")}
+                            </div>
+                        </div>`}
+                    <div class="key-price">${priceHTML(k, fixedQty ? 1 : qty)}</div>
+                    <button type="button" class="btn-cart" data-add="${k.id}">Add to cart</button>
                 </article>
             `;
         }).join("");
 
         grid.querySelectorAll(".key-card").forEach(card => {
             const id = parseInt(card.dataset.key, 10);
-            card.querySelectorAll(".qty-pill").forEach(pill => {
-                pill.addEventListener("click", () => {
-                    const q = parseInt(pill.dataset.qty, 10);
-                    qtySelection.set(id, q);
-                    card.querySelectorAll(".qty-pill").forEach(p => p.classList.toggle("active", p === pill));
+            const pkg = packages.find(k => k.id === id);
+            const slider = card.querySelector(".qty-slider");
+            const setStep = (s) => {
+                const q = QTY_STEPS[s];
+                qtySelection.set(id, q);
+                slider.value = String(s);
+                slider.style.setProperty("--fill", `${(s / (QTY_STEPS.length - 1)) * 100}%`);
+                slider.setAttribute("aria-valuetext", `${q}x`);
+                card.querySelectorAll(".qty-ticks span").forEach(t => t.classList.toggle("on", Number(t.dataset.step) === s));
+                card.querySelector(".key-price").innerHTML = priceHTML(pkg, q);
+            };
+            if (slider) {
+                slider.addEventListener("input", () => setStep(parseInt(slider.value, 10)));
+                card.querySelectorAll(".qty-ticks span").forEach(t => {
+                    t.addEventListener("click", () => setStep(Number(t.dataset.step)));
                 });
-            });
+            }
             card.querySelector("[data-add]").addEventListener("click", () => {
-                const pkg = packages.find(k => k.id === id);
                 const q = qtySelection.get(id) || 1;
                 requestAddToCart(pkg, q);
             });
         });
     };
 
+    /* ========== Sale bar ========== */
+    let saleTimer = null;
+    const renderSaleBar = () => {
+        const bar = $("#sale-bar");
+        if (!bar) return;
+        const pcts = [...storeData.ranks, ...storeData.keys, ...storeData.gems]
+            .map(saleInfo).filter(s => s.onSale).map(s => s.pct);
+        if (!pcts.length) { bar.classList.add("hidden"); return; }
+        const max = Math.max(...pcts);
+        $("#sale-pill").textContent = pcts.every(p => p === max) ? `${max}% SALE` : `UP TO ${max}% OFF`;
+        $("#sale-title").textContent = SALE_BANNER.title || "Sale Live";
+        bar.classList.remove("hidden");
+
+        const end = Date.parse(SALE_BANNER.endsAt);
+        const timer = $("#sale-timer");
+        if (!timer || !Number.isFinite(end)) return;
+        const pad = (n) => String(n).padStart(2, "0");
+        const tick = () => {
+            const left = Math.max(0, end - Date.now());
+            timer.classList.toggle("hidden", left <= 0);
+            if (left <= 0) { clearInterval(saleTimer); return; }
+            const s = Math.floor(left / 1000);
+            const parts = { d: Math.floor(s / 86400), h: Math.floor(s / 3600) % 24, m: Math.floor(s / 60) % 60, s: s % 60 };
+            timer.querySelectorAll("[data-t]").forEach(el => { el.textContent = pad(parts[el.dataset.t]); });
+        };
+        clearInterval(saleTimer);
+        tick();
+        saleTimer = setInterval(tick, 1000);
+    };
+
+    /* ========== Live counts (players online + Discord) ========== */
+    const initServerStatus = async () => {
+        const bubble = $("#players-bubble");
+        const num = $("#cp-goal-num");
+        const pct = $("#cp-goal-pct");
+        const fill = $("#cp-bar-fill");
+        try {
+            const s = await fetchJSON(`https://api.mcsrvstat.us/3/${encodeURIComponent(SERVER_IP)}`);
+            if (!s.online || !s.players) {
+                if (num) num.textContent = "Server offline";
+                return;
+            }
+            const online = Number(s.players.online) || 0;
+            const max = Number(s.players.max) || 0;
+            if (bubble) { bubble.textContent = compact(online); bubble.classList.remove("hidden"); }
+            if (num) num.textContent = max ? `${online} / ${max} players` : `${online} players`;
+            const p = max ? Math.min(100, Math.round((online / max) * 100)) : 0;
+            if (pct) pct.textContent = max ? `${p}%` : "";
+            // A sliver of bar even at low counts so it never looks empty.
+            if (fill) requestAnimationFrame(() => { fill.style.width = `${online ? Math.max(p, 3) : 0}%`; });
+        } catch {
+            if (num) num.textContent = "Status unavailable";
+        }
+    };
+
+    const initDiscordCount = async () => {
+        const bubble = $("#discord-bubble");
+        if (!bubble) return;
+        try {
+            const code = DISCORD_INVITE.split("/").pop();
+            const d = await fetchJSON(`https://discord.com/api/v10/invites/${encodeURIComponent(code)}?with_counts=true`);
+            const n = d.approximate_presence_count || d.approximate_member_count;
+            if (n) { bubble.textContent = compact(n); bubble.classList.remove("hidden"); }
+        } catch { /* bubble just stays hidden */ }
+    };
+
+    /* ========== Sticky bar: highlight the section in view ========== */
+    const initStoreBar = () => {
+        const links = $$("#bar-links .bar-link");
+        if (!links.length) return;
+        let queued = false;
+        const update = () => {
+            queued = false;
+            let current = "top";
+            const line = window.innerHeight * 0.4;
+            for (const a of links) {
+                const target = document.getElementById(a.dataset.spy);
+                if (!target || a.dataset.spy === "top" || target.classList.contains("hidden")) continue;
+                if (target.getBoundingClientRect().top <= line) current = a.dataset.spy;
+            }
+            links.forEach(a => a.classList.toggle("active", a.dataset.spy === current));
+        };
+        window.addEventListener("scroll", () => {
+            if (!queued) { queued = true; requestAnimationFrame(update); }
+        }, { passive: true });
+        update();
+    };
+
     /* ========== Cart ========== */
     const updateCartBadge = () => {
         const badge = $("#cart-count");
         if (!badge) return;
-        const total = Store.cart.reduce((s, i) => s + i.quantity, 0);
+        const cart = Store.cart;
+        const total = cart.reduce((s, i) => s + i.quantity, 0);
         badge.textContent = total;
+        const totalEl = $("#cart-total");
+        if (totalEl) totalEl.textContent = fmt(cart.reduce((s, i) => s + i.price * i.quantity, 0), cart[0]?.currency || "USD");
         badge.classList.remove("bump");
         void badge.offsetWidth;
         badge.classList.add("bump");
@@ -545,7 +716,7 @@
 
     // Skin head for the "signed in as" row. Java names resolve to the real
     // skin; Bedrock/dotted names fall back to a Steve head via mc-heads.
-    const skinHeadUrl = (name) => `https://mc-heads.net/avatar/${encodeURIComponent(name || "Steve")}/40`;
+    const skinHeadUrl = (name, size = 40) => `https://mc-heads.net/avatar/${encodeURIComponent(name || "Steve")}/${size}`;
 
     const renderCart = () => {
         const rowsEl = $("#checkout-rows");
@@ -691,16 +862,23 @@
         }
     };
 
-    const updateUserBanner = () => {
-        const banner = $("#user-banner");
-        if (!banner) return;
+    // Reflect the current player in the store bar chip and the account panel.
+    const updateAccountUI = () => {
         const u = Store.user;
-        if (u) {
-            $("#user-name").textContent = displayUsername();
-            banner.classList.remove("hidden");
-        } else {
-            banner.classList.add("hidden");
-        }
+        const name = u ? displayUsername() : "";
+        [["#bar-user-head", 40], ["#cp-head", 80]].forEach(([sel, size]) => {
+            const img = $(sel);
+            if (!img) return;
+            img.onerror = () => { img.onerror = null; img.src = skinHeadUrl("Steve", size); };
+            img.src = u ? skinHeadUrl(u, size) : "assets/favicon.png";
+        });
+        const set = (sel, text) => { const el = $(sel); if (el) el.textContent = text; };
+        set("#bar-user-name", u ? name : "Log in");
+        set("#cp-name", u ? name : "Not logged in");
+        set("#cp-sub", u
+            ? `${Store.platform === "bedrock" ? "Bedrock" : "Java"} Edition — purchases are delivered to this account.`
+            : "Log in with your Minecraft name to start shopping.");
+        set("#cp-login", u ? "Change account" : "Log in");
     };
 
     /* ========== Checkout ========== */
@@ -846,7 +1024,10 @@
     const initStore = () => {
         loadStore();
         updateCartBadge();
-        updateUserBanner();
+        updateAccountUI();
+        initStoreBar();
+        initServerStatus();
+        initDiscordCount();
 
         $("#cart-btn")?.addEventListener("click", openCart);
         $$("[data-close-cart]").forEach(el => el.addEventListener("click", closeCart));
@@ -895,7 +1076,7 @@
                 Store.user = val;
                 Store.xuid = "";
             }
-            updateUserBanner();
+            updateAccountUI();
             renderCart(); // keep the checkout account row in sync
             $("#user-modal").classList.add("hidden");
             toast(`Welcome, ${displayName}!`);
@@ -905,7 +1086,8 @@
             if (action) setTimeout(action, 100);
         });
 
-        $("#change-user")?.addEventListener("click", () => showUserModal());
+        $("#bar-user")?.addEventListener("click", () => showUserModal());
+        $("#cp-login")?.addEventListener("click", () => showUserModal());
         $("#switch-account")?.addEventListener("click", () => showUserModal());
         $("#currency-select")?.addEventListener("click", () => {
             const ccy = Store.cart[0]?.currency || "USD";
@@ -932,7 +1114,7 @@
     };
 
     /* ========== Legal (Terms / Privacy / Refunds) ========== */
-    const LEGAL_UPDATED = "22 July 2026";
+    const LEGAL_UPDATED = "26 October 2026";
     const LEGAL = {
         terms: {
             title: "Terms of Service",
@@ -968,6 +1150,8 @@
                 <ul>
                     <li><a href="https://www.tebex.io" target="_blank" rel="noopener">Tebex</a> — handles payments and order processing under its own privacy policy.</li>
                     <li><a href="https://geysermc.org" target="_blank" rel="noopener">GeyserMC</a> — used to verify Bedrock gamertags against Xbox so items reach the right account.</li>
+                    <li><a href="https://mc-heads.net" target="_blank" rel="noopener">mc-heads.net</a> — shows your Minecraft skin head next to your name.</li>
+                    <li><a href="https://mcsrvstat.us" target="_blank" rel="noopener">mcsrvstat.us</a> and <a href="https://discord.com" target="_blank" rel="noopener">Discord</a> — used to show how many players and community members are online. Only our server address and invite code are sent.</li>
                 </ul>
                 <h4>3. How we use it</h4>
                 <p>Information is used solely to process and deliver your order, provide support, and prevent fraud. We do not sell your data or use it for advertising.</p>
