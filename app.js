@@ -658,8 +658,29 @@
         }
         Store.cart = cart;
         updateCartBadge();
-        toast(`Added ${pkg.type === "subscription" ? "" : quantity + "× "}${pkg.name}`);
-        openCart();
+        flashAdded(pkg.id);
+    };
+
+    // Quiet confirmation instead of a toast: the clicked package's button
+    // turns into "✓ Added" for a moment and the cart button pops. The shopper
+    // stays on the store and opens the cart themselves.
+    const flashAdded = (id) => {
+        $$(`.key-card[data-key="${id}"] [data-add], .rank-row[data-rank="${id}"] [data-buy]`).forEach(btn => {
+            if (!btn.dataset.label) btn.dataset.label = btn.textContent;
+            btn.textContent = "✓ Added";
+            btn.classList.add("added");
+            clearTimeout(btn._addedTimer);
+            btn._addedTimer = setTimeout(() => {
+                btn.textContent = btn.dataset.label;
+                btn.classList.remove("added");
+            }, 1400);
+        });
+        const cartBtn = $("#cart-btn");
+        if (cartBtn) {
+            cartBtn.classList.remove("pop");
+            void cartBtn.offsetWidth;
+            cartBtn.classList.add("pop");
+        }
     };
 
     // Asks for username first if not set, then runs the add.
@@ -1112,7 +1133,6 @@
                 return;
             }
 
-            let displayName = val;
             if (modalPlatform === "bedrock") {
                 // Resolve the typed name to a real Xbox account by XUID so it
                 // works even when the in-game name "looks" wrong (underscores
@@ -1128,7 +1148,6 @@
                 Store.platform = "bedrock";
                 Store.user = resolved.gamertag; // real gamertag WITH spaces — Tebex needs this
                 Store.xuid = resolved.xuid;
-                displayName = displayUsername(); // shown with underscores: ".Hero_brine8026"
             } else {
                 Store.platform = "java";
                 Store.user = val;
@@ -1139,7 +1158,6 @@
             if (ownBox) ownBox.checked = false; // they must re-confirm the new account
             renderCart(); // keep the checkout rows in sync
             $("#user-modal").classList.add("hidden");
-            toast(`Welcome, ${displayName}!`);
             // Resume whatever the user was trying to do
             const action = pendingAction;
             pendingAction = null;
