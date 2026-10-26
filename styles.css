@@ -22,7 +22,7 @@
     --success: #22d39a;
     --danger: #ff5571;
     --ink: #111827;
-    --panel: linear-gradient(180deg, rgba(20, 30, 56, 0.96), rgba(13, 21, 41, 0.96));
+    --panel: linear-gradient(180deg, #141e38, #0d1529);
     --panel-shadow: 0 24px 60px rgba(3, 12, 35, 0.45);
     --radius: 14px;
     --radius-lg: 20px;
@@ -51,7 +51,7 @@ html { scroll-behavior: smooth; }
 body {
     font-family: var(--font);
     color: var(--text);
-    background: #0e3f93;
+    background: #0b0f2a;
     line-height: 1.55;
     min-height: 100vh;
     overflow-x: hidden;
@@ -64,17 +64,17 @@ img.img-missing { opacity: 0.05; }
 
 .hidden { display: none !important; }
 
-/* Drop a real server screenshot in at assets/background.jpg to replace the
-   generated blocky backdrop. A fixed layer (not background-attachment) so it
+/* assets/background.jpg is the generated "Starry Night" scene; drop a real
+   server screenshot in under the same name to replace it. A fixed layer (not background-attachment) so it
    also stays put on iOS. */
 .page-bg {
     position: fixed;
     inset: 0;
     z-index: 0;
     background:
-        linear-gradient(180deg, rgba(5, 18, 48, 0.18), rgba(5, 18, 48, 0.42)),
+        linear-gradient(180deg, rgba(5, 8, 26, 0.05), rgba(5, 8, 26, 0.3)),
         url("assets/background.jpg") center bottom / cover no-repeat,
-        linear-gradient(180deg, #46a8f5, #0e46a0);
+        linear-gradient(180deg, #06081c, #2a2470);
 }
 #particles {
     position: fixed;

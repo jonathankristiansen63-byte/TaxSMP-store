@@ -211,7 +211,7 @@
         toast._t = setTimeout(() => t.classList.remove("show"), 2400);
     };
 
-    /* ========== Particles (bubbles rising over the backdrop) ========== */
+    /* ========== Particles (twinkling stars + drifting fireflies) ========== */
     const initParticles = () => {
         const canvas = $("#particles");
         if (!canvas) return;
@@ -229,30 +229,42 @@
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.scale(dpr, dpr);
         };
+        // Stars sit still and twinkle; fireflies (about a third) wander and pulse
+        // gold. Both are drawn as little squares to keep the blocky look.
         const spawn = () => {
-            particles = Array.from({ length: COUNT }, () => ({
-                x: Math.random() * window.innerWidth,
-                y: Math.random() * window.innerHeight,
-                r: Math.random() * 2.6 + 1,
-                vy: -(Math.random() * 0.35 + 0.15),
-                wobble: Math.random() * Math.PI * 2,
-                a: Math.random() * 0.4 + 0.25
-            }));
+            particles = Array.from({ length: COUNT }, () => {
+                const firefly = Math.random() < 0.35;
+                return {
+                    firefly,
+                    x: Math.random() * window.innerWidth,
+                    y: firefly ? window.innerHeight * (0.35 + Math.random() * 0.65) : Math.random() * window.innerHeight * 0.7,
+                    size: firefly ? 3 : Math.random() < 0.3 ? 2.5 : 1.5,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.02 + Math.random() * 0.03,
+                    dir: Math.random() * Math.PI * 2
+                };
+            });
         };
         const tick = () => {
             ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
             for (const p of particles) {
-                p.wobble += 0.02;
-                p.x += Math.sin(p.wobble) * 0.25;
-                p.y += p.vy;
-                if (p.y < -10) { p.y = window.innerHeight + 10; p.x = Math.random() * window.innerWidth; }
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-                ctx.fillStyle = `rgba(255, 255, 255, ${p.a * 0.25})`;
-                ctx.strokeStyle = `rgba(255, 255, 255, ${p.a})`;
-                ctx.lineWidth = 1;
-                ctx.fill();
-                ctx.stroke();
+                p.phase += p.speed;
+                const pulse = 0.5 + 0.5 * Math.sin(p.phase);
+                if (p.firefly) {
+                    p.dir += (Math.random() - 0.5) * 0.15;
+                    p.x += Math.cos(p.dir) * 0.35;
+                    p.y += Math.sin(p.dir) * 0.25;
+                    if (p.x < -10) p.x = window.innerWidth + 10;
+                    if (p.x > window.innerWidth + 10) p.x = -10;
+                    if (p.y < window.innerHeight * 0.3 || p.y > window.innerHeight + 10) p.dir = -p.dir;
+                    ctx.shadowColor = "rgba(255, 200, 80, 0.9)";
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = `rgba(255, 214, 110, ${0.25 + pulse * 0.7})`;
+                } else {
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = `rgba(230, 236, 255, ${0.15 + pulse * 0.75})`;
+                }
+                ctx.fillRect(p.x, p.y, p.size, p.size);
             }
             requestAnimationFrame(tick);
         };

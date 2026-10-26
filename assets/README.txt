@@ -5,8 +5,8 @@ Store images — replace any of these with a file of the same name:
                         background). Keep both formats in sync.
 
   2. background.jpg   — the full-page backdrop behind everything. The current one
-                        is a generated blocky placeholder; a wide in-game
-                        screenshot of the server (about 1920x1200) looks best.
+                        is a generated Minecraft "Starry Night" scene; a wide
+                        in-game screenshot (about 1920x1200) also works.
 
   3. logo-island.png  — the TAX SMP island emblem (checkout header icon).
 
