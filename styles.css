@@ -73,7 +73,7 @@ img.img-missing { opacity: 0.05; }
     z-index: 0;
     background:
         linear-gradient(180deg, rgba(5, 8, 26, 0.05), rgba(5, 8, 26, 0.3)),
-        url("assets/background.jpg") center bottom / cover no-repeat,
+        url("assets/background.jpg?v=20261026-night") center bottom / cover no-repeat,
         linear-gradient(180deg, #06081c, #2a2470);
 }
 #particles {
